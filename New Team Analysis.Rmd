@@ -1,0 +1,508 @@
+---
+title: "New Team Analysis"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Sports Betting Analysis
+
+## Loading Packages
+
+```{r}
+library(readxl)
+library(dplyr)
+library(purrr)
+library(ggplot2)
+library(tidyverse)
+library(readr)
+library(purrr)
+library(stringr)
+library(broom)
+library(parameters)
+library(ggplot2)
+```
+
+# Data Cleaning
+
+## Loading in All Data
+
+```{r warning=FALSE}
+#Running script that contains all data (teams and players)
+source("/Users/camsmithers/Desktop/NBA Project/Main/Code/DataScript.R")
+
+#Joining all team data into one data frame
+all_team_data <- team_traditional %>%
+    left_join(team_advanced, by = c("team", 'date')) %>%
+    left_join(team_misc, by = c("team", "date")) %>%
+    left_join(team_scoring, by = c("team", "date")) %>%
+    left_join(team_outcome, by = c("team", "date")) %>%
+    left_join(best_players, by = c("team"))
+```
+
+## Data Cleaning 1: General Cleaning
+
+1.  Removing duplicates, renaming, and re-ordering
+2.  Adding the opposing team and some of their statistics
+3.  Re-ordering columns for better visualization when checking data
+
+```{r}
+all_team_data <- all_team_data %>%
+    select(-opponent, -opponent.y, -opponent.x.x, -opponent.y.y, -home, -home.y, -home.x.x,
+           -home.y.y, -blk.y, -pf.y) %>%
+    rename("opponent" = "opponent.x", "blk" = "blk.x", "pf" = "pf.x", "home" = "home.x") %>%
+    select(team, home, everything())
+team_temporary_df <- all_team_data %>%
+    select(team, opponent, date, pts) %>%
+    rename("team_1" = "team", "team_2" = "opponent")
+
+all_team_data <- all_team_data %>%
+    left_join(team_temporary_df, by = c("team" = "team_2", "date")) %>%
+    rename("opponent_pts" = "pts.y", "pts" = "pts.x") %>%
+    select(-team_1)
+
+all_team_data <- all_team_data %>%
+    select(date, home, team, pts, opponent, opponent_pts, everything()) %>%
+    rename_with(~ paste0("team_", .))
+```
+
+## Data Cleaning 2: Adding Important Outcomes
+
+1.  Creating variable for team winning.
+2.  Creating variable for team winning, this is used for later operations (ex: cumulative wins for total sum, calculating win percentage)
+3.  Creating variable for team losing, this is used for later operations (ex: cumulative wins for total sum, calculating win percentage)
+4.  Combining points between both teams.
+5.  Determining whether the teams' combined total points is higher than the predicted total.
+6.  Determining whether the outcome of the game was close or not.
+7.  Determining whether each team covered the spread.
+8.  Was a team who was favored lose?
+
+```{r}
+all_team_data <- all_team_data %>%
+    mutate(team_winloss = ifelse(team_plusminus > 0, 1, 0)) %>%
+    mutate(team_win = ifelse(team_plusminus > 0, 1, 0)) %>%
+    mutate(team_loss = ifelse(team_plusminus < 0, 1, 0)) %>%
+    mutate(team_combined_pts = team_pts + team_opponent_pts) %>%
+    mutate(team_cover_gametotal = ifelse(team_pts + team_opponent_pts > team_gametotal, 1, 0)) %>%
+    mutate(team_close_win = case_when(
+        team_plusminus <= 10 & team_plusminus > 0 ~ 1,
+        team_plusminus > 10 ~ 0,
+        TRUE ~ NA
+    )) %>%
+    mutate(team_point_differential = abs(team_plusminus)) %>%
+    mutate(team_cover_spread = case_when(
+        team_point_differential == team_spread ~ NA, 
+        team_point_differential > team_spread & team_favored == 1 ~ 1,
+        team_point_differential < team_spread & team_favored == 1 ~ 0, 
+        team_point_differential < team_spread & team_favored == 0 ~ 1, 
+        team_point_differential > team_spread & team_favored == 0 ~ 0
+    )) %>%
+    mutate(team_upset = case_when(
+        team_favored == 1 & team_plusminus < 0 ~ 1,
+        team_favored == 1 & team_plusminus > 0 ~ 0,
+        TRUE ~ NA
+    ))
+```
+
+## Data Cleaning 4: Team Averages
+
+1.  Team Average
+    1.  All of a team's games
+    2.  A team's last 10 games
+    3.  Combination of 1 & 2
+        1.  Creating weighted averages, which take into account all teams data and the last 10 games.
+2.  Opponent Average (Identical to Team Average; however, it will be joined back to original data frame so the opponent data is added accordingly)
+3.  League Average
+
+```{r}
+#Team Season Averages
+average_team <- all_team_data %>%
+    group_by(team_team) %>%
+    summarize(
+        team_pts = round(mean(team_pts, na.rm = TRUE), 2), 
+        team_reb = round(mean(team_reb, na.rm = TRUE), 2),
+        team_ast = round(mean(team_ast, na.rm = TRUE), 2),
+        team_fgpct = round(mean(team_fgpct, na.rm = TRUE), 2),
+        team_threefgpct = round(mean(team_threefgpct, na.rm = TRUE), 2),
+        team_tspct = round(mean(team_tspct, na.rm = TRUE), 2), 
+        team_offrating = round(mean(team_offrating, na.rm = TRUE), 2),
+        team_defrating = round(mean(team_defrating, na.rm = TRUE), 2),
+        team_netrating = round(mean(team_netrating, na.rm = TRUE), 2),
+        team_tov = round(mean(team_tov, na.rm = TRUE), 2),
+        team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
+    ) %>%
+    rename_with(~ paste0("avg_", .))
+
+#Team Last 10 Games Averages
+average_team_last10 <- all_team_data %>%
+    group_by(team_team) %>%
+    slice_tail(n = 10) %>%
+    summarize(
+        team_pts = round(mean(team_pts, na.rm = TRUE), 2), 
+        team_reb = round(mean(team_reb, na.rm = TRUE), 2),
+        team_ast = round(mean(team_ast, na.rm = TRUE), 2),
+        team_fgpct = round(mean(team_fgpct, na.rm = TRUE), 2),
+        team_threefgpct = round(mean(team_threefgpct, na.rm = TRUE), 2),
+        team_tspct = round(mean(team_tspct, na.rm = TRUE), 2), 
+        team_offrating = round(mean(team_offrating, na.rm = TRUE), 2),
+        team_defrating = round(mean(team_defrating, na.rm = TRUE), 2),
+        team_netrating = round(mean(team_netrating, na.rm = TRUE), 2),
+        team_tov = round(mean(team_tov, na.rm = TRUE), 2),
+        team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
+    ) %>%
+    rename_with(~ paste0("avg_", ., "_last10"))
+
+#Joining Team Average Data Frames
+average_team_full <- average_team %>%
+    left_join(average_team_last10, by = c("avg_team_team" = "avg_team_team_last10")) %>%
+    mutate(team_weighted_pts = (avg_team_pts * 0.50) + (avg_team_pts_last10 * 0.50)) %>%
+    mutate(team_weighted_reb = (avg_team_reb * 0.50) + (avg_team_reb_last10 * 0.50)) %>%
+    mutate(team_weighted_ast = (avg_team_ast * 0.50) + (avg_team_ast_last10 * 0.50)) %>%
+    mutate(team_weighted_fgpct = (avg_team_fgpct * 0.50) + (avg_team_fgpct_last10 * 0.50)) %>%
+    mutate(team_weighted_tspct = (avg_team_tspct * 0.50) + (avg_team_tspct_last10 * 0.50)) %>%
+    mutate(team_weighted_offrating = (avg_team_offrating * 0.50) + (avg_team_offrating_last10 * 0.50)) %>%
+    mutate(team_weighted_defrating = (avg_team_defrating * 0.50) + (avg_team_defrating_last10 * 0.50)) %>%
+    mutate(team_weighted_netrating = (avg_team_netrating * 0.50) + (avg_team_netrating_last10 * 0.50)) %>%
+    mutate(team_weighted_tov = (avg_team_tov * 0.50) + (avg_team_tov_last10 * 0.50)) %>%
+    mutate(team_weighted_plusminus = (avg_team_plusminus * 0.50) + (avg_team_plusminus_last10 * 0.50))
+
+#Team Season Averages (Used to Join via Opponents Later)
+opponent_average_team <- all_team_data %>%
+    group_by(team_team) %>%
+    summarize(
+        opponent_team_pts = round(mean(team_pts, na.rm = TRUE), 2), 
+        opponent_team_reb = round(mean(team_reb, na.rm = TRUE), 2),
+        opponent_team_ast = round(mean(team_ast, na.rm = TRUE), 2),
+        opponent_team_fgpct = round(mean(team_fgpct, na.rm = TRUE), 2),
+        opponent_team_threefgpct = round(mean(team_threefgpct, na.rm = TRUE), 2),
+        opponent_team_tspct = round(mean(team_tspct, na.rm = TRUE), 2), 
+        opponent_team_offrating = round(mean(team_offrating, na.rm = TRUE), 2),
+        opponent_team_defrating = round(mean(team_defrating, na.rm = TRUE), 2),
+        opponent_team_netrating = round(mean(team_netrating, na.rm = TRUE), 2),
+        opponent_team_tov = round(mean(team_tov, na.rm = TRUE), 2),
+        opponent_team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
+    ) %>%
+    rename_with(~ paste0("avg_", .))
+
+#Team Last 10 Games Averages (Used to Join via Opponents Later)
+opponent_average_team_last10 <- all_team_data %>%
+    group_by(team_team) %>%
+    slice_tail(n = 10) %>%
+    summarize(
+        opponent_team_pts = round(mean(team_pts, na.rm = TRUE), 2), 
+        opponent_team_reb = round(mean(team_reb, na.rm = TRUE), 2),
+        opponent_team_ast = round(mean(team_ast, na.rm = TRUE), 2),
+        opponent_team_fgpct = round(mean(team_fgpct, na.rm = TRUE), 2),
+        opponent_team_threefgpct = round(mean(team_threefgpct, na.rm = TRUE), 2),
+        opponent_team_tspct = round(mean(team_tspct, na.rm = TRUE), 2), 
+        opponent_team_offrating = round(mean(team_offrating, na.rm = TRUE), 2),
+        opponent_team_defrating = round(mean(team_defrating, na.rm = TRUE), 2),
+        opponent_team_netrating = round(mean(team_netrating, na.rm = TRUE), 2),
+        opponent_team_tov = round(mean(team_tov, na.rm = TRUE), 2),
+        opponent_team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
+    ) %>%
+    rename_with(~ paste0("avg_", ., "_last10"))
+
+opponent_average_team_full <- opponent_average_team %>%
+    left_join(opponent_average_team_last10, by = c("avg_team_team" = "avg_team_team_last10")) %>%
+    mutate(opponent_team_weighted_pts = 
+               (avg_opponent_team_pts * 0.50) + (avg_opponent_team_pts_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_reb = 
+               (avg_opponent_team_reb * 0.50) + (avg_opponent_team_reb_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_ast = 
+               (avg_opponent_team_ast * 0.50) + (avg_opponent_team_ast_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_fgpct = 
+               (avg_opponent_team_fgpct * 0.50) + (avg_opponent_team_fgpct_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_tspct = 
+               (avg_opponent_team_tspct * 0.50) + (avg_opponent_team_tspct_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_offrating = 
+               (avg_opponent_team_offrating * 0.50) + (avg_opponent_team_offrating_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_defrating = 
+               (avg_opponent_team_defrating * 0.50) + (avg_opponent_team_defrating_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_netrating = 
+               (avg_opponent_team_netrating * 0.50) + (avg_opponent_team_netrating_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_tov = 
+               (avg_opponent_team_tov * 0.50) + (avg_opponent_team_tov_last10 * 0.50)) %>%
+    mutate(opponent_team_weighted_plusminus = 
+               (avg_opponent_team_plusminus * 0.50) + (avg_opponent_team_plusminus_last10 * 0.50))
+
+league_average <- all_team_data %>%
+    summarize(
+        league_pts = round(mean(team_pts, na.rm = TRUE), 2), 
+        league_reb = round(mean(team_reb, na.rm = TRUE), 2),
+        league_ast = round(mean(team_ast, na.rm = TRUE), 2),
+        league_fgpct = round(mean(team_fgpct, na.rm = TRUE), 2),
+        league_threefgpct = round(mean(team_threefgpct, na.rm = TRUE), 2),
+        league_tspct = round(mean(team_tspct, na.rm = TRUE), 2), 
+        league_offrating = round(mean(team_offrating, na.rm = TRUE), 2),
+        league_defrating = round(mean(team_defrating, na.rm = TRUE), 2),
+        league_netrating = round(mean(team_netrating, na.rm = TRUE), 2),
+        league_tov = round(mean(team_tov, na.rm = TRUE), 2),
+        league_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
+    ) %>%
+    rename_with(~ paste0("avg_", .))
+
+all_team_data <- all_team_data %>%
+    left_join(average_team_full, by = c("team_team" = "avg_team_team")) %>%
+    left_join(opponent_average_team_full, by = c("team_opponent" = "avg_team_team"))
+
+all_team_data <- data.frame(all_team_data, league_average)
+```
+
+## Data Cleaning 5: Ranking Team Performances
+
+```{r}
+rank_by_offrating <- all_team_data %>%
+    arrange(team_offrating) %>%
+    mutate(team_offrating_subrank = 7 - ntile(team_offrating, 6)) %>%
+    group_by(team_team) %>%
+    summarize(team_collective_offrating_subrank = sum(team_offrating_subrank, na.rm = TRUE)) %>%
+    arrange(team_collective_offrating_subrank)
+rank_by_offrating_1 <- rank_by_offrating %>%
+    arrange(desc(team_collective_offrating_subrank)) %>%
+    mutate(team_offrating_performance_tier = ntile(team_collective_offrating_subrank, 6))
+#Ranking by defensive rating
+rank_by_defrating <- all_team_data %>%
+    arrange(team_defrating) %>%
+    mutate(team_defrating_subrank = ntile(team_defrating, 6)) %>%
+    group_by(team_team) %>%
+    summarize(team_collective_defrating_subrank = sum(team_defrating_subrank, na.rm = TRUE)) %>%
+    arrange(team_collective_defrating_subrank)
+rank_by_defrating_1 <- rank_by_defrating %>%
+    arrange(team_collective_defrating_subrank) %>%
+    mutate(team_defrating_performance_tier = ntile(team_collective_defrating_subrank, 6))
+#Joining offensive and defensive rating data frames
+rank_by_off_def_rating <- rank_by_offrating_1 %>%
+    left_join(rank_by_defrating_1, by = c("team_team")) %>%
+    rename("team_offrating_score" = "team_collective_offrating_subrank", 
+           "team_defrating_score" = "team_collective_defrating_subrank",
+           "team_offrating_tier" = "team_offrating_performance_tier", 
+           "team_defrating_tier" = "team_defrating_performance_tier")
+opponent_rank_by_off_def_rating <- rank_by_off_def_rating %>%
+    rename("team_opponent" = "team_team", 
+           "team_opponent_offrating_score" = "team_offrating_score", 
+           "team_opponent_defrating_score" = "team_defrating_score",
+           "team_opponent_offrating_tier" = "team_offrating_tier", 
+           "team_opponent_defrating_tier" = "team_defrating_tier")
+all_team_data <- all_team_data %>%
+    left_join(rank_by_off_def_rating, by = c("team_team")) %>%
+    left_join(opponent_rank_by_off_def_rating, by = c("team_opponent"))
+all_team_data <- all_team_data %>%
+    mutate(team_off_tier_diff = team_offrating_tier - team_opponent_offrating_tier) %>%
+    mutate(team_def_tier_diff = team_defrating_tier - team_opponent_defrating_tier) %>%
+    mutate(team_similar_offense = ifelse(team_off_tier_diff == -1 | team_off_tier_diff == 0 | team_off_tier_diff == 1, 1, 0)) %>%
+    mutate(team_similar_defense = ifelse(team_def_tier_diff == -1 | team_def_tier_diff == 0 | team_def_tier_diff == 1, 1, 0))
+```
+
+## Data Cleaning 8: Adding Descriptive Variables
+
+1.  Adding the conference each team plays in.
+2.  Adding the division each team plays in.
+
+```{r}
+all_team_data <- all_team_data %>%
+    mutate(team_conference = case_when(
+        team_team == "bos" | team_team == "bkn" | team_team == "nyk" | team_team == "phi" | team_team == "tor" 
+        | team_team == "chi" | team_team == "cle" | team_team == "det" | team_team == "ind" | team_team == "mil" 
+        | team_team == "atl" | team_team == "cha" | team_team == "mia" | team_team == "orl" | team_team == "was" ~ "Eastern",
+        team_team == "den" | team_team == "min" | team_team == "okc" | team_team == "por" | team_team == "uta" 
+        | team_team == "gsw" | team_team == "lac" | team_team == "lal" | team_team == "phx" | team_team == "sac" 
+        | team_team == "dal" | team_team == "hou" | team_team == "mem" | team_team == "nop" | team_team == "sas" ~ "Western"
+    )) %>%
+    mutate(team_division = case_when(
+        team_team == "bos" | team_team == "bkn" | team_team == "nyk" | team_team == "phi" | team_team == "tor" ~ "Atlantic",
+        team_team == "chi" | team_team == "cle" | team_team == "det" | team_team == "ind" | team_team == "mil" ~ "Central",
+        team_team == "atl" | team_team == "cha" | team_team == "mia" | team_team == "orl" | team_team == "was" ~ "Southeast",
+        team_team == "den" | team_team == "min" | team_team == "okc" | team_team == "por" | team_team == "uta" ~ "Northwest",
+        team_team == "gsw" | team_team == "lac" | team_team == "lal" | team_team == "phx" | team_team == "sac" ~ "Pacific",
+        team_team == "dal" | team_team == "hou" | team_team == "mem" | team_team == "nop" | team_team == "sas" ~ "Southwest"
+    ))
+```
+
+------------------------------------------------------------------------
+
+# Modeling & Data Cleaning
+
+## Model Testing 1: Win Loss Model
+
+```{r}
+winloss_model <- glm(team_winloss ~ team_home 
+                     + avg_team_offrating 
+                     + avg_team_defrating
+                     + avg_opponent_team_offrating
+                     + avg_opponent_team_defrating
+                     ,data = all_team_data, family = binomial)
+summary_winloss_model <- summary(winloss_model)
+summary_winloss_model
+
+winloss_model_v2 <- glm(team_winloss ~ team_home 
+                     + team_weighted_offrating 
+                     + team_weighted_defrating
+                     + opponent_team_weighted_offrating
+                     + opponent_team_weighted_defrating
+                     ,data = all_team_data, family = binomial)
+summary_winloss_model_v2 <- summary(winloss_model_v2)
+summary_winloss_model_v2
+```
+
+### Model Data Creation 1: Win Loss Model
+
+```{r}
+winloss_df <- as.data.frame(summary_winloss_model$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+
+winloss_df_v2 <- as.data.frame(summary_winloss_model_v2$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+```
+
+### Data Cleaning 7: Adding Win Loss Model (Estimates and Probability)
+
+```{r}
+e <- exp(1)
+#Win Loss Version 1 Model
+all_team_data <- all_team_data %>%
+    mutate(winloss_team_prob = round(100 * (1 / (1 + e^-((winloss_df$Estimate[1] * team_home) 
+                                               + (winloss_df$Estimate[2] * avg_team_offrating) 
+                                               + (winloss_df$Estimate[3] * avg_team_defrating) 
+                                               + (winloss_df$Estimate[4] * avg_opponent_team_offrating) 
+                                               + (winloss_df$Estimate[5] * avg_opponent_team_defrating)))), 1))
+#Win Loss Version 2 Model
+all_team_data <- all_team_data %>%
+    mutate(winloss_v2_team_prob = round(100 * (1 / (1 + e^-((winloss_df_v2$Estimate[1] * team_home) 
+                                               + (winloss_df_v2$Estimate[2] * team_weighted_offrating) 
+                                               + (winloss_df_v2$Estimate[3] * team_weighted_defrating) 
+                                               + (winloss_df_v2$Estimate[4] * opponent_team_weighted_offrating) 
+                                               + (winloss_df_v2$Estimate[5] * opponent_team_weighted_defrating)))), 1))
+
+variable_sum_df <- all_team_data %>%
+    group_by(team_team) %>%
+    summarize(team_favored_sum = sum(team_favored, na.rm = TRUE), 
+              team_upset_sum = sum(team_upset, na.rm = TRUE)) %>%
+    mutate(team_upset_rate = round(team_upset_sum/team_favored_sum, 2))
+
+all_team_data <- all_team_data %>%
+    left_join(variable_sum_df, by = c("team_team")) %>%
+    group_by(team_team) %>%
+    mutate(team_wins_to_date = cumsum(team_win)) %>%
+    mutate(team_losses_to_date = cumsum(team_loss)) %>%
+    mutate(team_games_played_to_date = team_wins_to_date + team_losses_to_date) %>%
+    mutate(team_win_pct = round((team_wins_to_date/team_games_played_to_date), 3)) %>%
+    ungroup()
+```
+
+## Model Testing 2: Upset Model
+
+```{r}
+upset_model <- glm(team_upset ~ team_upset_rate
+                   + team_spread
+                   , data = all_team_data, family = binomial)
+summary_upset_model <- summary(upset_model)
+summary_upset_model
+```
+
+### Model Data Creation 2: Upset Model
+
+```{r}
+upset_df <- as.data.frame(summary_upset_model$coefficients) %>%
+    rownames_to_column(var = "Variable")%>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+```
+
+### Data Cleaning 9: Adding Upset Model
+
+```{r}
+all_team_data <- all_team_data %>%
+    mutate(upset_team_prob = case_when(
+        team_favored == 1 ~ round(100 * (1 / (1 + e^-(upset_df$Estimate[1] + 
+            (upset_df$Estimate[2] * team_upset_rate) + 
+            (upset_df$Estimate[3] * team_spread)))), 1), 
+        team_favored == 0 ~ NA
+    ))
+```
+
+## Model Testing 3: Close and Blowout Wins
+
+```{r}
+close_win_model <- glm(team_close_win ~ avg_team_netrating
+                   + avg_opponent_team_netrating
+                      , data = all_team_data, family = binomial)
+summary_close_win_model <- summary(close_win_model)
+summary_close_win_model
+
+close_win_model_v2 <- glm(team_close_win ~ team_weighted_netrating
+                   + opponent_team_weighted_netrating
+                      , data = all_team_data, family = binomial)
+summary_close_win_model_v2 <- summary(close_win_model_v2)
+summary_close_win_model_v2
+```
+
+### Model Data Creation 3: PlusMinus (Margin of Victory)
+
+```{r}
+close_win_df <- as.data.frame(summary_close_win_model$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+
+close_win_df_v2 <- as.data.frame(summary_close_win_model_v2$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+```
+
+### Data Cleaning 10:
+
+```{r}
+all_team_data <- all_team_data %>%
+    mutate(close_win_prob = round(100 * (1 / (1 + e^-((close_win_df$Estimate[1])
+           + (close_win_df$Estimate[2] * avg_team_netrating)
+           + (close_win_df$Estimate[3] * avg_opponent_team_netrating)))), 1))
+
+all_team_data <- all_team_data %>%
+    mutate(close_win_v2_prob = round(100 * (1 / (1 + e^-((close_win_df_v2$Estimate[1])
+           + (close_win_df_v2$Estimate[2] * team_weighted_netrating)
+           + (close_win_df_v2$Estimate[3] * opponent_team_weighted_netrating)))), 1))
+```
+
+# Data Visualizations
+
+```{r}
+change_over_time <- ggplot(all_team_data, aes(x = team_date, y = team_offrating, color = as.factor(team_winloss))) +
+    geom_point() +
+    geom_path() +
+#    geom_hline(aes(yintercept = avg_team_offrating), linetype = "solid", color = "blue") +
+    geom_hline(aes(yintercept = avg_league_offrating), linetype = "solid", color = "black") +
+    facet_wrap(~team_team)
+change_over_time
+#ggsave(plot = change_over_time, "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations/team_offrating.png", width = 50, height = 30, units = "cm")
+change_over_time_2 <- ggplot(all_team_data, aes(x = team_date, y = team_defrating, color = as.factor(team_winloss))) +
+    geom_point() +
+    geom_path() + 
+#    geom_hline(aes(yintercept = avg_team_defrating), linetype = "solid", color = "blue") +
+    geom_hline(aes(yintercept = avg_league_defrating), linetype = "solid", color = "black") +
+    facet_wrap(~team_team)
+change_over_time_2
+#ggsave(plot = change_over_time_2, "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations/team_defrating.png", width = 50, height = 30, units = "cm")
+
+scatter_1 <- ggplot(all_team_data, aes(x = team_tspct, team_offrating)) + 
+    geom_point() +
+    geom_vline(aes(xintercept = avg_league_tspct), color = "red", linewidth = 1, linetype = "solid") +
+    geom_smooth(method = "lm", se = TRUE, color = "blue")
+scatter_1
+```
+
+```{r warning=FALSE}
+a <- ggplot(all_team_data, aes(as.factor(team_offrating_tier), team_offrating, fill = as.factor(team_division)))
+b <- ggplot(all_team_data, aes(team_team, team_defrating, fill = as.factor(team_winloss)))
+
+a + geom_boxplot()
+b + geom_boxplot()
+```

@@ -1,0 +1,206 @@
+---
+title: "New Player Analysis"
+author: Cam Smithers
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Sports Betting Analysis 2: Player Outcomes and Predictions
+
+## Loading Packages
+
+```{r}
+library(readxl)
+library(dplyr)
+library(purrr)
+library(ggplot2)
+library(tidyverse)
+library(readr)
+library(purrr)
+library(stringr)
+library(broom)
+library(parameters)
+library(ggplot2)
+```
+
+# Data Cleaning
+
+## Loading in All Data
+
+```{r warning=FALSE}
+#source("/Users/camsmithers/Desktop/NBA Project/Main/Code/DataScript.R")
+
+all_player_data <- player_traditional %>%
+    left_join(player_advanced, by = c("team", "date", "player")) %>% 
+    left_join(player_misc, by = c("team", "date", "player")) %>%
+    left_join(player_scoring, by = c("team", "date", "player")) %>%
+    full_join(player_outcome, by = c("team", "date", "player"))
+```
+
+## Data Cleaning 1: General
+
+```{r}
+all_player_data <- all_player_data %>%
+    select(-home, -pf.y, -blk.y, -home.y.y, -home.x.x, -home.y) %>%
+    rename("home" = "home.x", "blk" = "blk.x", "pf" = "pf.x") %>%
+    rename_with(~ paste0("player_", .)) %>%
+    filter(!is.na(player_player))
+```
+
+## Data Cleaning 2: Important Outcomes
+
+```{r}
+all_player_data <- all_player_data %>%
+    mutate(player_cover_pts = ifelse(player_pts > player_gen_player_pts, 1, 0)) %>%
+    mutate(player_cover_reb = ifelse(player_reb > player_gen_player_reb, 1, 0)) %>%
+    mutate(player_cover_ast = ifelse(player_ast > player_gen_player_ast, 1, 0)) %>%
+    mutate(player_pts_odds_avi = ifelse(!is.na(player_gen_player_pts), 1, 0)) %>%
+    mutate(player_reb_odds_avi = ifelse(!is.na(player_gen_player_reb), 1, 0)) %>%
+    mutate(player_ast_odds_avi = ifelse(!is.na(player_gen_player_ast), 1, 0))
+
+player_vars_1 <- all_player_data %>%
+    group_by(player_player) %>%
+    summarize(
+        player_pts_odds_num = sum(player_pts_odds_avi, na.rm = TRUE),
+        player_reb_odds_num = sum(player_reb_odds_avi, na.rm = TRUE),
+        player_ast_odds_num = sum(player_ast_odds_avi, na.rm = TRUE),
+        player_cover_pts_hist = sum(player_cover_pts, na.rm = TRUE),
+        player_cover_reb_hist = sum(player_cover_reb, na.rm = TRUE), 
+        player_cover_ast_hist = sum(player_cover_ast, na.rm = TRUE)
+    ) %>%
+    mutate(player_cover_pts_rate = round(player_cover_pts_hist/player_pts_odds_num, 2)) %>%
+    mutate(player_cover_reb_rate = round(player_cover_reb_hist/player_reb_odds_num, 2)) %>%
+    mutate(player_cover_ast_rate = round(player_cover_ast_hist/player_ast_odds_num, 2))
+
+all_player_data <- all_player_data %>%
+    left_join(player_vars_1, by = c("player_player"))
+```
+
+## Data Cleaning 3: Player Averages
+
+```{r}
+average_player <- all_player_data %>%
+    group_by(player_player) %>%
+    summarize(
+        player_pts = round(mean(player_pts, na.rm = TRUE), 1), 
+        player_reb = round(mean(player_reb, na.rm = TRUE), 1), 
+        player_ast = round(mean(player_ast, na.rm = TRUE), 1), 
+        player_tspct = round(mean(player_tspct, na.rm = TRUE), 1),
+        player_offrating = round(mean(player_offrating, na.rm = TRUE), 1), 
+        player_defrating = round(mean(player_defrating, na.rm = TRUE), 1), 
+        player_tov = round(mean(player_tov, na.rm = TRUE), 1)
+    ) %>%
+    rename_with(~ paste0("avg_", .))
+
+average_player_last10 <- all_player_data %>%
+    group_by(player_player) %>%
+    slice_tail(n = 10) %>%
+    summarize(
+        player_pts = round(mean(player_pts, na.rm = TRUE), 1), 
+        player_reb = round(mean(player_reb, na.rm = TRUE), 1), 
+        player_ast = round(mean(player_ast, na.rm = TRUE), 1), 
+        player_tspct = round(mean(player_tspct, na.rm = TRUE), 1),
+        player_offrating = round(mean(player_offrating, na.rm = TRUE), 1), 
+        player_defrating = round(mean(player_defrating, na.rm = TRUE), 1), 
+        player_tov = round(mean(player_tov, na.rm = TRUE), 1)
+    ) %>%
+    rename_with(~ paste0("avg_", ., "_last10"))
+
+average_player_full <- average_player %>%
+    left_join(average_player_last10, by = c("avg_player_player" = "avg_player_player_last10")) %>%
+    mutate(player_weighted_pts  = (avg_player_pts * .50) + (avg_player_pts_last10 * .50)) %>%
+    mutate(player_weighted_reb  = (avg_player_reb * .50) + (avg_player_ast_last10 * .50)) %>%
+    mutate(player_weighted_ast  = (avg_player_ast * .50) + (avg_player_reb_last10 * .50)) %>%
+    mutate(player_weighted_tspct  = (avg_player_tspct * .50) + (avg_player_tspct_last10 * .50)) %>%
+    mutate(player_weighted_offrating  = (avg_player_offrating * .50) + (avg_player_offrating_last10 * .50)) %>%
+    mutate(player_weighted_defrating  = (avg_player_defrating * .50) + (avg_player_defrating_last10 * .50)) %>%
+    mutate(player_weighted_tov  = (avg_player_tov * .50) + (avg_player_tov_last10 * .50))
+    
+all_player_data <- all_player_data %>%
+    left_join(average_player_full, by = c("player_player" = "avg_player_player"))
+
+
+```
+
+mutate(player_weighted\_ = (avg_player_player\_ \* .50) + (avg_player_player\_\_ast10 \* .50)) %\>% \## Data Cleaning 4: Player & Team Data
+
+```{r}
+all_data <- all_player_data %>%
+    left_join(all_team_data, by = c("player_team" = "team_team", "player_date" = "team_date"))
+```
+
+# Modeling & Data Cleaning
+
+## Model Testing 1: Player Points
+
+```{r}
+player_pts_model <- glm(player_cover_pts ~ avg_player_pts
+                        + player_gen_player_pts
+                        + avg_opponent_team_defrating
+                        , data =  all_data, family = binomial)
+summary_player_pts_model <- summary(player_pts_model)
+summary_player_pts_model
+
+player_pts_model_v2 <- glm(player_cover_pts ~ avg_player_pts
+                        + player_gen_player_pts
+                        + avg_opponent_team_defrating
+                        + player_cover_pts_rate
+                        , data =  all_data, family = binomial)
+summary_player_pts_model_v2 <- summary(player_pts_model_v2)
+summary_player_pts_model_v2
+
+#player_pts_model_v3 <- glm(player_cover_pts ~ player_weighted_pts
+#                           + player_gen_player_pts
+#                           + opponent_team_weighted_defrating
+#                           , data = all_data, family = binomial)
+#summary_player_pts_model_v3 <- summary(player_pts_model_v3)
+#summary_player_pts_model_v3
+
+#player_pts_model_v4 <- glm(player_cover_pts ~ player_weighted_pts
+#                                   + player_gen_player_pts
+#                                   + opponent_team_weighted_defrating
+#                                   + player_cover_pts_rate,
+#                                   data = all_data, family = binomial)
+#summary_player_pts_model_v4 <- summary(player_pts_model_v4)
+#summary_player_pts_model_v4
+```
+
+### Model Data Creating 1: Cover Player Points
+
+```{r}
+player_pts_df <- as.data.frame(summary_player_pts_model$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+
+player_pts_df_v2 <- as.data.frame(summary_player_pts_model_v2$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+
+#player_pts_df_v4 <- as.data.frame(summary_player_pts_model_v4$coefficients) %>%
+#    rownames_to_column(var = "Variable") %>%
+#    as_tibble() %>%
+#    filter(`Pr(>|z|)` < .05)
+```
+
+### Data Cleaing 5: Adding Player Points Model
+
+```{r}
+all_data <- all_data %>%
+    mutate(cover_pts_prob = round(100 * (1 / (1 + e^-((player_pts_df$Estimate[1]) 
+           + (player_pts_df$Estimate[2] * avg_player_pts) 
+           + (player_pts_df$Estimate[3] * player_gen_player_pts) 
+           + (player_pts_df$Estimate[4] * avg_opponent_team_defrating)))), 1)
+           ) %>%
+    mutate(cover_pts_v2_prob = round(100 * (1 / (1 + e^-((player_pts_df_v2$Estimate[1]) 
+           + (player_pts_df_v2$Estimate[2] * avg_player_pts) 
+           + (player_pts_df_v2$Estimate[3] * player_gen_player_pts) 
+           + (player_pts_df_v2$Estimate[4] * avg_opponent_team_defrating)
+           + (player_pts_df_v2$Estimate[5] * player_cover_pts_rate)))), 1)
+           )
+```
