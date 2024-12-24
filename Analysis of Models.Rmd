@@ -1,0 +1,24 @@
+---
+title: "Analysis of Models"
+author: Cam Smithers
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Win Loss Models
+
+```{r}
+winloss_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/WinLoss1"
+winloss_v1_files <- list.files(winloss_v1_folder, pattern = "\\.csv",
+                               full.names = TRUE)
+```
+
+## Win Loss: Version 1
+
+```{r}
+
+```
