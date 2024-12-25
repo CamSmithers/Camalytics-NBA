@@ -1,5 +1,6 @@
 ---
 title: "New Team Analysis"
+author: "Cam Smithers
 output: html_document
 date: "`r Sys.Date()`"
 ---
@@ -32,14 +33,14 @@ library(ggplot2)
 
 ```{r warning=FALSE}
 #Running script that contains all data (teams and players)
-source("/Users/camsmithers/Desktop/NBA Project/Main/Code/DataScript.R")
+source("/Users/camsmithers/Desktop/NBA Project/Main/Data/DataScript.R")
 
 #Joining all team data into one data frame
 all_team_data <- team_traditional %>%
-    left_join(team_advanced, by = c("team", 'date')) %>%
+    left_join(team_advanced, by = c("team", 'date')) %>% 
     left_join(team_misc, by = c("team", "date")) %>%
     left_join(team_scoring, by = c("team", "date")) %>%
-    left_join(team_outcome, by = c("team", "date")) %>%
+    left_join(team_outcome, by = c("team", "date")) %>% 
     left_join(best_players, by = c("team"))
 ```
 
@@ -52,24 +53,26 @@ all_team_data <- team_traditional %>%
 ```{r}
 all_team_data <- all_team_data %>%
     select(-opponent, -opponent.y, -opponent.x.x, -opponent.y.y, -home, -home.y, -home.x.x,
-           -home.y.y, -blk.y, -pf.y) %>%
-    rename("opponent" = "opponent.x", "blk" = "blk.x", "pf" = "pf.x", "home" = "home.x") %>%
-    select(team, home, everything())
-team_temporary_df <- all_team_data %>%
+           -home.y.y, -blk.y, -pf.y) %>% #Removing duplicated columns
+    rename("opponent" = "opponent.x", "blk" = "blk.x", "pf" = "pf.x", "home" = "home.x") %>% #Wanted to keep specific duplicated to be used as the main
+    select(team, home, everything()) #Re-ordering variables for better visualization
+team_temporary_df <- all_team_data %>% #Temporary data frame used add opponents' points scored
     select(team, opponent, date, pts) %>%
     rename("team_1" = "team", "team_2" = "opponent")
 
-all_team_data <- all_team_data %>%
+all_team_data <- all_team_data %>% #Joining opponent points to original data frame
     left_join(team_temporary_df, by = c("team" = "team_2", "date")) %>%
     rename("opponent_pts" = "pts.y", "pts" = "pts.x") %>%
     select(-team_1)
 
-all_team_data <- all_team_data %>%
+all_team_data <- all_team_data %>% #Re-ordering for better visualization
     select(date, home, team, pts, opponent, opponent_pts, everything()) %>%
-    rename_with(~ paste0("team_", .))
+    rename_with(~ paste0("team_", .)) #Adding _team to each observation for easier recognition of variable for later cleaning, model building, and joins
 ```
 
 ## Data Cleaning 2: Adding Important Outcomes
+
+Mutates' In Order
 
 1.  Creating variable for team winning.
 2.  Creating variable for team winning, this is used for later operations (ex: cumulative wins for total sum, calculating win percentage)
@@ -119,7 +122,7 @@ all_team_data <- all_team_data %>%
 
 ```{r}
 #Team Season Averages
-average_team <- all_team_data %>%
+average_team <- all_team_data %>% #Creating data frame with averages of specific statistics for each team
     group_by(team_team) %>%
     summarize(
         team_pts = round(mean(team_pts, na.rm = TRUE), 2), 
@@ -134,10 +137,10 @@ average_team <- all_team_data %>%
         team_tov = round(mean(team_tov, na.rm = TRUE), 2),
         team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
     ) %>%
-    rename_with(~ paste0("avg_", .))
+    rename_with(~ paste0("avg_", .)) #Renaming for easier recognition of variables
 
 #Team Last 10 Games Averages
-average_team_last10 <- all_team_data %>%
+average_team_last10 <- all_team_data %>% #Creating data frame with averages of specific statistics for each team
     group_by(team_team) %>%
     slice_tail(n = 10) %>%
     summarize(
@@ -153,21 +156,31 @@ average_team_last10 <- all_team_data %>%
         team_tov = round(mean(team_tov, na.rm = TRUE), 2),
         team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
     ) %>%
-    rename_with(~ paste0("avg_", ., "_last10"))
+    rename_with(~ paste0("avg_", ., "_last10")) #Renaming for easier recognition of variables
 
 #Joining Team Average Data Frames
-average_team_full <- average_team %>%
+average_team_full <- average_team %>% #Joining team data from beginning of season to present day and the last ten games
     left_join(average_team_last10, by = c("avg_team_team" = "avg_team_team_last10")) %>%
-    mutate(team_weighted_pts = (avg_team_pts * 0.50) + (avg_team_pts_last10 * 0.50)) %>%
-    mutate(team_weighted_reb = (avg_team_reb * 0.50) + (avg_team_reb_last10 * 0.50)) %>%
-    mutate(team_weighted_ast = (avg_team_ast * 0.50) + (avg_team_ast_last10 * 0.50)) %>%
-    mutate(team_weighted_fgpct = (avg_team_fgpct * 0.50) + (avg_team_fgpct_last10 * 0.50)) %>%
-    mutate(team_weighted_tspct = (avg_team_tspct * 0.50) + (avg_team_tspct_last10 * 0.50)) %>%
-    mutate(team_weighted_offrating = (avg_team_offrating * 0.50) + (avg_team_offrating_last10 * 0.50)) %>%
-    mutate(team_weighted_defrating = (avg_team_defrating * 0.50) + (avg_team_defrating_last10 * 0.50)) %>%
-    mutate(team_weighted_netrating = (avg_team_netrating * 0.50) + (avg_team_netrating_last10 * 0.50)) %>%
-    mutate(team_weighted_tov = (avg_team_tov * 0.50) + (avg_team_tov_last10 * 0.50)) %>%
-    mutate(team_weighted_plusminus = (avg_team_plusminus * 0.50) + (avg_team_plusminus_last10 * 0.50))
+    mutate(team_weighted_pts = 
+               (avg_team_pts * 0.50) + (avg_team_pts_last10 * 0.50)) %>% #Creating weighted statistics to increase influence of recent play
+    mutate(team_weighted_reb = 
+               (avg_team_reb * 0.50) + (avg_team_reb_last10 * 0.50)) %>%
+    mutate(team_weighted_ast = 
+               (avg_team_ast * 0.50) + (avg_team_ast_last10 * 0.50)) %>%
+    mutate(team_weighted_fgpct = 
+               (avg_team_fgpct * 0.50) + (avg_team_fgpct_last10 * 0.50)) %>%
+    mutate(team_weighted_tspct = 
+               (avg_team_tspct * 0.50) + (avg_team_tspct_last10 * 0.50)) %>%
+    mutate(team_weighted_offrating = 
+               (avg_team_offrating * 0.50) + (avg_team_offrating_last10 * 0.50)) %>%
+    mutate(team_weighted_defrating = 
+               (avg_team_defrating * 0.50) + (avg_team_defrating_last10 * 0.50)) %>%
+    mutate(team_weighted_netrating = 
+               (avg_team_netrating * 0.50) + (avg_team_netrating_last10 * 0.50)) %>%
+    mutate(team_weighted_tov = 
+               (avg_team_tov * 0.50) + (avg_team_tov_last10 * 0.50)) %>%
+    mutate(team_weighted_plusminus = 
+               (avg_team_plusminus * 0.50) + (avg_team_plusminus_last10 * 0.50))
 
 #Team Season Averages (Used to Join via Opponents Later)
 opponent_average_team <- all_team_data %>%
@@ -229,7 +242,7 @@ opponent_average_team_full <- opponent_average_team %>%
     mutate(opponent_team_weighted_plusminus = 
                (avg_opponent_team_plusminus * 0.50) + (avg_opponent_team_plusminus_last10 * 0.50))
 
-league_average <- all_team_data %>%
+league_average <- all_team_data %>% #Statistics of the entire league, used for later comparisons
     summarize(
         league_pts = round(mean(team_pts, na.rm = TRUE), 2), 
         league_reb = round(mean(team_reb, na.rm = TRUE), 2),
@@ -245,42 +258,45 @@ league_average <- all_team_data %>%
     ) %>%
     rename_with(~ paste0("avg_", .))
 
-all_team_data <- all_team_data %>%
+all_team_data <- all_team_data %>% #Joining summary statistic data frames to the main data frame
     left_join(average_team_full, by = c("team_team" = "avg_team_team")) %>%
     left_join(opponent_average_team_full, by = c("team_opponent" = "avg_team_team"))
 
-all_team_data <- data.frame(all_team_data, league_average)
+all_team_data <- data.frame(all_team_data, league_average) #Adding league average statistics to the main data frame
 ```
 
 ## Data Cleaning 5: Ranking Team Performances
 
 ```{r}
-rank_by_offrating <- all_team_data %>%
+#Ranking by offensive rating
+rank_by_offrating <- all_team_data %>% #Data frame to sort offensive performance
     arrange(team_offrating) %>%
     mutate(team_offrating_subrank = 7 - ntile(team_offrating, 6)) %>%
     group_by(team_team) %>%
     summarize(team_collective_offrating_subrank = sum(team_offrating_subrank, na.rm = TRUE)) %>%
     arrange(team_collective_offrating_subrank)
-rank_by_offrating_1 <- rank_by_offrating %>%
+rank_by_offrating_1 <- rank_by_offrating %>% #Splits offensive performances into tiers to group teams on the offensive end
     arrange(desc(team_collective_offrating_subrank)) %>%
     mutate(team_offrating_performance_tier = ntile(team_collective_offrating_subrank, 6))
+
 #Ranking by defensive rating
-rank_by_defrating <- all_team_data %>%
+rank_by_defrating <- all_team_data %>% #Data frame to sort defensive performance
     arrange(team_defrating) %>%
     mutate(team_defrating_subrank = ntile(team_defrating, 6)) %>%
     group_by(team_team) %>%
     summarize(team_collective_defrating_subrank = sum(team_defrating_subrank, na.rm = TRUE)) %>%
     arrange(team_collective_defrating_subrank)
-rank_by_defrating_1 <- rank_by_defrating %>%
+rank_by_defrating_1 <- rank_by_defrating %>% #Splits defensive performance into tiers to group teams on the defensive end
     arrange(team_collective_defrating_subrank) %>%
     mutate(team_defrating_performance_tier = ntile(team_collective_defrating_subrank, 6))
+
 #Joining offensive and defensive rating data frames
 rank_by_off_def_rating <- rank_by_offrating_1 %>%
     left_join(rank_by_defrating_1, by = c("team_team")) %>%
     rename("team_offrating_score" = "team_collective_offrating_subrank", 
            "team_defrating_score" = "team_collective_defrating_subrank",
            "team_offrating_tier" = "team_offrating_performance_tier", 
-           "team_defrating_tier" = "team_defrating_performance_tier")
+           "team_defrating_tier" = "team_defrating_performance_tier") 
 opponent_rank_by_off_def_rating <- rank_by_off_def_rating %>%
     rename("team_opponent" = "team_team", 
            "team_opponent_offrating_score" = "team_offrating_score", 
@@ -290,7 +306,7 @@ opponent_rank_by_off_def_rating <- rank_by_off_def_rating %>%
 all_team_data <- all_team_data %>%
     left_join(rank_by_off_def_rating, by = c("team_team")) %>%
     left_join(opponent_rank_by_off_def_rating, by = c("team_opponent"))
-all_team_data <- all_team_data %>%
+all_team_data <- all_team_data %>% #Determining how similar teams are on each side of the ball
     mutate(team_off_tier_diff = team_offrating_tier - team_opponent_offrating_tier) %>%
     mutate(team_def_tier_diff = team_defrating_tier - team_opponent_defrating_tier) %>%
     mutate(team_similar_offense = ifelse(team_off_tier_diff == -1 | team_off_tier_diff == 0 | team_off_tier_diff == 1, 1, 0)) %>%
@@ -500,7 +516,7 @@ scatter_1
 ```
 
 ```{r warning=FALSE}
-a <- ggplot(all_team_data, aes(as.factor(team_offrating_tier), team_offrating, fill = as.factor(team_division)))
+a <- ggplot(all_team_data, aes(as.factor(team_offrating_tier), team_offrating, fill = as.factor(team_team)))
 b <- ggplot(all_team_data, aes(team_team, team_defrating, fill = as.factor(team_winloss)))
 
 a + geom_boxplot()

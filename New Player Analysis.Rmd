@@ -1,6 +1,6 @@
 ---
 title: "New Player Analysis"
-author: Cam Smithers
+author: "Cam Smithers"
 output: html_document
 date: "`r Sys.Date()`"
 ---
@@ -32,13 +32,13 @@ library(ggplot2)
 ## Loading in All Data
 
 ```{r warning=FALSE}
-#source("/Users/camsmithers/Desktop/NBA Project/Main/Code/DataScript.R")
+#source("/Users/camsmithers/Desktop/NBA Project/Main/Data/DataScript.R")
 
 all_player_data <- player_traditional %>%
     left_join(player_advanced, by = c("team", "date", "player")) %>% 
     left_join(player_misc, by = c("team", "date", "player")) %>%
     left_join(player_scoring, by = c("team", "date", "player")) %>%
-    full_join(player_outcome, by = c("team", "date", "player"))
+    full_join(player_outcome, by = c("team", "date", "player")) #Used full join since data from traditional data doesn't exists yet
 ```
 
 ## Data Cleaning 1: General
@@ -143,7 +143,7 @@ player_pts_model <- glm(player_cover_pts ~ avg_player_pts
                         + avg_opponent_team_defrating
                         , data =  all_data, family = binomial)
 summary_player_pts_model <- summary(player_pts_model)
-summary_player_pts_model
+#summary_player_pts_model
 
 player_pts_model_v2 <- glm(player_cover_pts ~ avg_player_pts
                         + player_gen_player_pts
@@ -151,22 +151,7 @@ player_pts_model_v2 <- glm(player_cover_pts ~ avg_player_pts
                         + player_cover_pts_rate
                         , data =  all_data, family = binomial)
 summary_player_pts_model_v2 <- summary(player_pts_model_v2)
-summary_player_pts_model_v2
-
-#player_pts_model_v3 <- glm(player_cover_pts ~ player_weighted_pts
-#                           + player_gen_player_pts
-#                           + opponent_team_weighted_defrating
-#                           , data = all_data, family = binomial)
-#summary_player_pts_model_v3 <- summary(player_pts_model_v3)
-#summary_player_pts_model_v3
-
-#player_pts_model_v4 <- glm(player_cover_pts ~ player_weighted_pts
-#                                   + player_gen_player_pts
-#                                   + opponent_team_weighted_defrating
-#                                   + player_cover_pts_rate,
-#                                   data = all_data, family = binomial)
-#summary_player_pts_model_v4 <- summary(player_pts_model_v4)
-#summary_player_pts_model_v4
+#summary_player_pts_model_v2
 ```
 
 ### Model Data Creating 1: Cover Player Points

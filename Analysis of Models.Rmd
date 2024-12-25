@@ -1,6 +1,6 @@
 ---
 title: "Analysis of Models"
-author: Cam Smithers
+author: "Cam Smithers"
 output: html_document
 date: "`r Sys.Date()`"
 ---
@@ -12,13 +12,85 @@ knitr::opts_chunk$set(echo = TRUE)
 # Win Loss Models
 
 ```{r}
+#WinLoss Model 1
 winloss_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/WinLoss1"
 winloss_v1_files <- list.files(winloss_v1_folder, pattern = "\\.csv",
+                               full.names = TRUE)
+
+#WinLoss Model 2
+winloss_v2_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/WinLoss2"
+winloss_v2_files <- list.files(winloss_v2_folder, patter = "\\.csv",
                                full.names = TRUE)
 ```
 
 ## Win Loss: Version 1
 
 ```{r}
+winloss_v1_outcome_data <- winloss_v1_files %>%
+    lapply(read_csv) %>%
+    bind_rows()
+# Creating intermediate data frame to add 
+winloss_v1_intermediate <- winloss_v1_outcome_data %>%
+    select(team_date, team_team, winloss_team_prob) %>%
+    rename("team_int" = "team_team", "winloss_team_prob_int" = "winloss_team_prob")
 
+winloss_v1_outcome_data <- winloss_v1_outcome_data %>%
+    left_join(winloss_v1_intermediate, by = c("team_opponent" = "team_int", "team_date" = "team_date")) %>%
+    rename("winloss_opponent_team_prob" = "winloss_team_prob_int")
+
+winloss_v1_outcome_data <- winloss_v1_outcome_data %>%
+    mutate(winloss_model_pick = ifelse(winloss_team_prob > winloss_opponent_team_prob, 1, 0)) %>%
+    mutate(winloss_model_range = winloss_team_prob - winloss_opponent_team_prob)
+
+winloss_all_team_data <- all_team_data %>%
+    select(team_team, team_date, team_winloss, team_favored)
+
+winloss_v1_outcome_data <- winloss_v1_outcome_data %>%
+    left_join(winloss_all_team_data, by = c("team_team", "team_date")) %>%
+    filter(!is.na(team_winloss)) %>%
+    mutate(my_predictions = ifelse(winloss_model_pick == team_winloss, 1, 0)) %>%
+    mutate(fd_predictions = ifelse(team_favored == team_winloss, 1, 0))
+```
+
+### Win Loss: Version 1: Plots
+
+```{r}
+winloss_v1_plot_data <- winloss_v1_outcome_data %>%
+    filter(winloss_team_prob > 50.0)
+
+winloss_v1_plot <- ggplot(winloss_v1_outcome_data, aes(x = winloss_team_prob, fill = as.factor(team_winloss))) + 
+    geom_histogram(color = "black") + 
+    scale_y_continuous(breaks = seq(0, 20, by = 2))
+
+winloss_v1_plot
+```
+
+
+## Win Loss: Version 2
+
+```{r}
+winloss_v2_outcome_data <- winloss_v2_files %>%
+    lapply(read_csv) %>%
+    bind_rows()
+# Creating intermediate data frame to add 
+winloss_v2_intermediate <- winloss_v2_outcome_data %>%
+    select(team_date, team_team, winloss_v2_team_prob) %>%
+    rename("team_int" = "team_team", "winloss_v2_team_prob_int" = "winloss_v2_team_prob")
+
+winloss_v2_outcome_data <- winloss_v2_outcome_data %>%
+    left_join(winloss_v2_intermediate, by = c("team_opponent" = "team_int", "team_date" = "team_date")) %>%
+    rename("winloss_v2_opponent_team_prob" = "winloss_v2_team_prob_int")
+
+winloss_v2_outcome_data <- winloss_v2_outcome_data %>%
+    mutate(winloss_v2_model_pick = ifelse(winloss_v2_team_prob > winloss_v2_opponent_team_prob, 1, 0)) %>%
+    mutate(winloss_v2_model_range = winloss_v2_team_prob - winloss_v2_opponent_team_prob)
+
+winloss_v2_all_team_data <- all_team_data %>%
+    select(team_team, team_date, team_winloss, team_favored)
+
+winloss_v2_outcome_data <- winloss_v2_outcome_data %>%
+    left_join(winloss_v2_all_team_data, by = c("team_team", "team_date")) %>%
+    filter(!is.na(team_winloss)) %>%
+    mutate(my_predictions = ifelse(winloss_v2_model_pick == team_winloss, 1, 0)) %>%
+    mutate(fd_predictions = ifelse(team_favored == team_winloss, 1, 0))
 ```
