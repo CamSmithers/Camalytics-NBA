@@ -126,7 +126,7 @@ all_player_data <- all_player_data %>%
 
 ```
 
-mutate(player_weighted\_ = (avg_player_player\_ \* .50) + (avg_player_player\_\_ast10 \* .50)) %\>% \## Data Cleaning 4: Player & Team Data
+## Data Cleaning 4: Player & Team Data
 
 ```{r}
 all_data <- all_player_data %>%

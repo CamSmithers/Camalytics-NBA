@@ -516,9 +516,24 @@ scatter_1
 ```
 
 ```{r warning=FALSE}
-a <- ggplot(all_team_data, aes(as.factor(team_offrating_tier), team_offrating, fill = as.factor(team_team)))
-b <- ggplot(all_team_data, aes(team_team, team_defrating, fill = as.factor(team_winloss)))
+a <- ggplot(all_team_data, aes(team_team, team_offrating, fill = as.factor(team_team)))
+b <- ggplot(all_team_data, aes(team_team, team_defrating, fill = as.factor(team_team)))
 
 a + geom_boxplot()
 b + geom_boxplot()
+
+all_team_data_long <- all_team_data %>%
+  gather(key = "rating_type", value = "rating_value", team_offrating, team_defrating)
+
+# Create the combined plot
+combined_plot <- ggplot(all_team_data_long, aes(team_team, rating_value, fill = as.factor(team_team))) +
+  geom_boxplot() +
+  facet_wrap(~ rating_type, scales = "free_y") +  # Facet by rating type
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for better readability
+  labs(title = "Team Offense and Defense Ratings",
+       x = "Team",
+       y = "Rating")
+
+# Display the plot
+combined_plot
 ```

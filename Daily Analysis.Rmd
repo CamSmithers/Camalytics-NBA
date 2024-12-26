@@ -63,7 +63,7 @@ close_win_v2_daily_analysis <- all_team_data %>%
 
 ## Team CSV Files
 
-```{r eval=FALSE}
+```{r}
 current_date <- format(Sys.Date(), "%m_%d_%y")
 
 #WinLoss 1
@@ -76,7 +76,7 @@ write_csv(winloss_v2_daily_analysis,
 
 #Upset 1
 write_csv(upset_daily_analysis, 
-          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Upset1/upset1", current_date, ".csv"))
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Upset1/upset1_", current_date, ".csv"))
 
 #Close Win 1
 write_csv(close_win_daily_analysis, 
@@ -116,7 +116,7 @@ cover_pts_v2_daily_analysis <- all_data %>%
 
 ## Player CSV Files
 
-```{r eval=FALSE}
+```{r}
 write_csv(cover_pts_daily_analysis, paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts1/playerpts1_", current_date, ".csv"))
 write_csv(cover_pts_daily_analysis, paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts2/playerpts2_", current_date, ".csv"))
 ```
