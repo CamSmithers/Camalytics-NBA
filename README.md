@@ -4,7 +4,7 @@ Hi I'm Cam! Welcome to the Camalytics-NBA Repository. This repository is dedicat
 
 I decided to start this project because I love sports and statistics! I also enjoy betting on sports from time to time, so why not try to make models to make some money and have fun!
 
-I have an Instagram page that will be decated to analyzing the models and interpreting its results. I will also go indepth about how I went through creating the models and using them to make predictions. If you would like to follow along the it's [@camalytics](https://www.instagram.com/camalytics?igsh=MWczZGlhbzl5eGxoYw%3D%3D&utm_source=qr) on Instrgram.
+I have an Instagram page that will be decated to analyzing the models and interpreting its results. I will also go in-depth about how I went through creating the models and using them to make predictions. If you would like to follow along the it's [@camalytics](https://www.instagram.com/camalytics?igsh=MWczZGlhbzl5eGxoYw%3D%3D&utm_source=qr) on Instagram.
 ## Coding Files
 Significant Predictors
 * This file is used to test for significant predictors within each data set. This allows me to determine which predictors are significant against any outcome I want to look at. Each predictor is placed into a univariate logistic regression model (via the function created), to aid in future multivariable model building in the subsequent files.
