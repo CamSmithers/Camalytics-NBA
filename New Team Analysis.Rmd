@@ -376,7 +376,7 @@ all_team_data <- all_team_data %>%
     team_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_wins_sum / team_games_sum, 3)),
     team_favored_gen_rate = ifelse(team_games_sum == 0, NA, round(team_favored_sum / team_games_sum, 3)),
     team_upset_gen_rate = ifelse(team_favored_sum == 0, NA, round(team_upset_sum / team_favored_sum, 3)),
-    team_close_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_close_win_sum / team_wins_sum, 3)),
+    team_close_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_close_win_sum / team_games_sum, 3)),
     
     # Cumulative Rates with NA/Zero handling
     team_win_cumsum_rate = ifelse(team_games_cumsum == 0, NA, round(team_wins_cumsum / team_games_cumsum, 3)),
