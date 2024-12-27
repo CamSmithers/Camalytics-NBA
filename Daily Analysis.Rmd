@@ -37,9 +37,18 @@ winloss_v2_daily_analysis <- all_team_data %>%
 
 ```{r}
 upset_daily_analysis <- all_team_data %>%
-    select(team_date, team_team, team_home, team_opponent, team_favored, team_upset_rate, team_spread,upset_team_prob) %>%
+    select(team_date, team_team, team_home, team_opponent, team_favored, team_upset_gen_rate, team_spread, upset_team_prob) %>%
     filter(team_date == Sys.Date())
 ```
+
+### Version  2
+
+```{r}
+upset_v2_daily_analysis <- all_team_data %>%
+    select(team_date, team_team, team_home, team_opponent, team_favored, team_upset_cumsum_rate, team_spread, upset_v2_team_prob) %>%
+    filter(team_date == Sys.Date())
+```
+
 
 ## Close Win Models
 
@@ -59,13 +68,27 @@ close_win_v2_daily_analysis <- all_team_data %>%
     filter(team_date == Sys.Date())
 ```
 
+### Version 3
+
+```{r}
+close_win_v3_daily_analysis <- all_team_data %>%
+    select(team_date, team_team, team_home, avg_team_netrating, team_opponent, avg_opponent_team_netrating, team_close_win_cumsum_rate, close_win_v3_prob) %>%
+    filter(team_date == Sys.Date())
+```
+
+
 ------------------------------------------------------------------------
+
+## Variables for Exportation
+
+```{r}
+current_date <- format(Sys.Date(), "%m_%d_%y")
+```
+
 
 ## Team CSV Files
 
 ```{r}
-current_date <- format(Sys.Date(), "%m_%d_%y")
-
 #WinLoss 1
 write_csv(winloss_daily_analysis, 
           paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/WinLoss1/winloss1_", current_date, ".csv"))
@@ -77,6 +100,9 @@ write_csv(winloss_v2_daily_analysis,
 #Upset 1
 write_csv(upset_daily_analysis, 
           paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Upset1/upset1_", current_date, ".csv"))
+#Upset 2
+write_csv(upset_v2_daily_analysis, 
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Upset2/upset2_", current_date, ".csv"))
 
 #Close Win 1
 write_csv(close_win_daily_analysis, 
@@ -85,6 +111,10 @@ write_csv(close_win_daily_analysis,
 #Close Win 2
 write_csv(close_win_v2_daily_analysis, 
           paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/CloseWin2/closewin2_", current_date, ".csv"))
+
+#Close Win 3
+write_csv(close_win_v3_daily_analysis, 
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/CloseWin3/closewin3_", current_date, ".csv"))
 
 ```
 
@@ -108,7 +138,16 @@ cover_pts_daily_analysis <- all_data %>%
 ```{r}
 cover_pts_v2_daily_analysis <- all_data %>%
     select(player_date, player_team, player_player, team_opponent, avg_player_pts,
-           player_gen_player_pts, avg_opponent_team_defrating, player_cover_pts_rate,cover_pts_v2_prob) %>%
+           player_gen_player_pts, avg_opponent_team_defrating, player_cover_pts_gen_rate, cover_pts_v2_prob) %>%
+    filter(player_date == Sys.Date())
+```
+
+### Version 3
+
+```{r}
+cover_pts_v3_daily_analysis <- all_data %>%
+   select(player_date, player_team, player_player, team_opponent, avg_player_pts,
+           player_gen_player_pts, avg_opponent_team_defrating, player_cover_pts_cumsum_rate, cover_pts_v3_prob) %>%
     filter(player_date == Sys.Date())
 ```
 
@@ -117,6 +156,10 @@ cover_pts_v2_daily_analysis <- all_data %>%
 ## Player CSV Files
 
 ```{r}
-write_csv(cover_pts_daily_analysis, paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts1/playerpts1_", current_date, ".csv"))
-write_csv(cover_pts_daily_analysis, paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts2/playerpts2_", current_date, ".csv"))
+write_csv(cover_pts_daily_analysis, 
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts1/playerpts1_", current_date, ".csv"))
+write_csv(cover_pts_v2_daily_analysis, 
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts2/playerpts2_", current_date, ".csv"))
+write_csv(cover_pts_v3_daily_analysis, 
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts3/playerpts3_", current_date, ".csv"))
 ```

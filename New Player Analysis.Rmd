@@ -54,30 +54,52 @@ all_player_data <- all_player_data %>%
 ## Data Cleaning 2: Important Outcomes
 
 ```{r}
-all_player_data <- all_player_data %>%
-    mutate(player_cover_pts = ifelse(player_pts > player_gen_player_pts, 1, 0)) %>%
-    mutate(player_cover_reb = ifelse(player_reb > player_gen_player_reb, 1, 0)) %>%
-    mutate(player_cover_ast = ifelse(player_ast > player_gen_player_ast, 1, 0)) %>%
-    mutate(player_pts_odds_avi = ifelse(!is.na(player_gen_player_pts), 1, 0)) %>%
-    mutate(player_reb_odds_avi = ifelse(!is.na(player_gen_player_reb), 1, 0)) %>%
-    mutate(player_ast_odds_avi = ifelse(!is.na(player_gen_player_ast), 1, 0))
-
-player_vars_1 <- all_player_data %>%
-    group_by(player_player) %>%
-    summarize(
-        player_pts_odds_num = sum(player_pts_odds_avi, na.rm = TRUE),
-        player_reb_odds_num = sum(player_reb_odds_avi, na.rm = TRUE),
-        player_ast_odds_num = sum(player_ast_odds_avi, na.rm = TRUE),
-        player_cover_pts_hist = sum(player_cover_pts, na.rm = TRUE),
-        player_cover_reb_hist = sum(player_cover_reb, na.rm = TRUE), 
-        player_cover_ast_hist = sum(player_cover_ast, na.rm = TRUE)
-    ) %>%
-    mutate(player_cover_pts_rate = round(player_cover_pts_hist/player_pts_odds_num, 2)) %>%
-    mutate(player_cover_reb_rate = round(player_cover_reb_hist/player_reb_odds_num, 2)) %>%
-    mutate(player_cover_ast_rate = round(player_cover_ast_hist/player_ast_odds_num, 2))
+cumsum_with_na <- function(variable) {
+    ifelse(is.na(variable), NA, cumsum(ifelse(is.na(variable), 0, variable)))
+}
 
 all_player_data <- all_player_data %>%
-    left_join(player_vars_1, by = c("player_player"))
+  mutate(
+    # Binary indicators and availability flags
+    player_cover_pts = ifelse(player_pts > player_gen_player_pts, 1, 0),
+    player_cover_reb = ifelse(player_reb > player_gen_player_reb, 1, 0),
+    player_cover_ast = ifelse(player_ast > player_gen_player_ast, 1, 0),
+    player_pts_odds_avi = ifelse(!is.na(player_gen_player_pts), 1, 0),
+    player_reb_odds_avi = ifelse(!is.na(player_gen_player_reb), 1, 0),
+    player_ast_odds_avi = ifelse(!is.na(player_gen_player_ast), 1, 0)
+  ) %>%
+  group_by(player_player) %>%
+  mutate(
+    # General sums
+    player_pts_odds_sum = sum(player_pts_odds_avi, na.rm = TRUE),
+    player_reb_odds_sum = sum(player_reb_odds_avi, na.rm = TRUE),
+    player_ast_odds_sum = sum(player_ast_odds_avi, na.rm = TRUE),
+    player_cover_pts_sum = sum(player_cover_pts, na.rm = TRUE),
+    player_cover_reb_sum = sum(player_cover_reb, na.rm = TRUE),
+    player_cover_ast_sum = sum(player_cover_ast, na.rm = TRUE),
+    
+    # Cumulative sums with NA handling
+    player_pts_odds_cumsum = cumsum(ifelse(is.na(player_pts_odds_avi), 0, player_pts_odds_avi)),
+    player_reb_odds_cumsum = cumsum(ifelse(is.na(player_reb_odds_avi), 0, player_reb_odds_avi)),
+    player_ast_odds_cumsum = cumsum(ifelse(is.na(player_ast_odds_avi), 0, player_ast_odds_avi)),
+    player_cover_pts_cumsum = cumsum(ifelse(is.na(player_cover_pts), 0, player_cover_pts)),
+    player_cover_reb_cumsum = cumsum(ifelse(is.na(player_cover_reb), 0, player_cover_reb)),
+    player_cover_ast_cumsum = cumsum(ifelse(is.na(player_cover_ast), 0, player_cover_ast)),
+    
+    # General rates (avoiding division by zero or NA)
+    player_cover_pts_gen_rate = ifelse(player_pts_odds_sum == 0, NA, round(player_cover_pts_sum / player_pts_odds_sum, 2)),
+    player_cover_reb_gen_rate = ifelse(player_reb_odds_sum == 0, NA, round(player_cover_reb_sum / player_reb_odds_sum, 2)),
+    player_cover_ast_gen_rate = ifelse(player_ast_odds_sum == 0, NA, round(player_cover_ast_sum / player_ast_odds_sum, 2)),
+    
+    # Cumulative rates (avoiding division by zero or NA)
+    player_cover_pts_cumsum_rate = ifelse(player_pts_odds_cumsum == 0, NA, round(player_cover_pts_cumsum / player_pts_odds_cumsum, 2)),
+    player_cover_reb_cumsum_rate = ifelse(player_reb_odds_cumsum == 0, NA, round(player_cover_reb_cumsum / player_reb_odds_cumsum, 2)),
+    player_cover_ast_cumsum_rate = ifelse(player_ast_odds_cumsum == 0, NA, round(player_cover_ast_cumsum / player_ast_odds_cumsum, 2))
+  ) %>%
+  ungroup()
+
+
+
 ```
 
 ## Data Cleaning 3: Player Averages
@@ -122,8 +144,6 @@ average_player_full <- average_player %>%
     
 all_player_data <- all_player_data %>%
     left_join(average_player_full, by = c("player_player" = "avg_player_player"))
-
-
 ```
 
 ## Data Cleaning 4: Player & Team Data
@@ -143,15 +163,23 @@ player_pts_model <- glm(player_cover_pts ~ avg_player_pts
                         + avg_opponent_team_defrating
                         , data =  all_data, family = binomial)
 summary_player_pts_model <- summary(player_pts_model)
-#summary_player_pts_model
+summary_player_pts_model
 
 player_pts_model_v2 <- glm(player_cover_pts ~ avg_player_pts
                         + player_gen_player_pts
                         + avg_opponent_team_defrating
-                        + player_cover_pts_rate
+                        + player_cover_pts_gen_rate
                         , data =  all_data, family = binomial)
 summary_player_pts_model_v2 <- summary(player_pts_model_v2)
-#summary_player_pts_model_v2
+summary_player_pts_model_v2
+
+player_pts_model_v3 <- glm(player_cover_pts ~ avg_player_pts
+                           + player_gen_player_pts
+                           + avg_opponent_team_defrating
+                           + player_cover_pts_cumsum_rate
+                           , data = all_data, family = binomial)
+summary_player_pts_model_v3 <- summary(player_pts_model_v3)
+summary_player_pts_model_v3
 ```
 
 ### Model Data Creating 1: Cover Player Points
@@ -167,10 +195,10 @@ player_pts_df_v2 <- as.data.frame(summary_player_pts_model_v2$coefficients) %>%
     as_tibble() %>%
     filter(`Pr(>|z|)` < .05)
 
-#player_pts_df_v4 <- as.data.frame(summary_player_pts_model_v4$coefficients) %>%
-#    rownames_to_column(var = "Variable") %>%
-#    as_tibble() %>%
-#    filter(`Pr(>|z|)` < .05)
+player_pts_df_v3 <- as.data.frame(summary_player_pts_model_v3$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
 ```
 
 ### Data Cleaing 5: Adding Player Points Model
@@ -186,6 +214,12 @@ all_data <- all_data %>%
            + (player_pts_df_v2$Estimate[2] * avg_player_pts) 
            + (player_pts_df_v2$Estimate[3] * player_gen_player_pts) 
            + (player_pts_df_v2$Estimate[4] * avg_opponent_team_defrating)
-           + (player_pts_df_v2$Estimate[5] * player_cover_pts_rate)))), 1)
+           + (player_pts_df_v2$Estimate[5] * player_cover_pts_gen_rate)))), 1)
+           ) %>%
+    mutate(cover_pts_v3_prob = round(100 * (1 / (1 + e^-((player_pts_df_v3$Estimate[1]) 
+           + (player_pts_df_v3$Estimate[2] * avg_player_pts) 
+           + (player_pts_df_v3$Estimate[3] * player_gen_player_pts) 
+           + (player_pts_df_v3$Estimate[4] * avg_opponent_team_defrating)
+           + (player_pts_df_v3$Estimate[5] * player_cover_pts_cumsum_rate)))), 1)
            )
 ```

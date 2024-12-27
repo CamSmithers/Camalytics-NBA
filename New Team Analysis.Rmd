@@ -313,7 +313,7 @@ all_team_data <- all_team_data %>% #Determining how similar teams are on each si
     mutate(team_similar_defense = ifelse(team_def_tier_diff == -1 | team_def_tier_diff == 0 | team_def_tier_diff == 1, 1, 0))
 ```
 
-## Data Cleaning 8: Adding Descriptive Variables
+## Data Cleaning 6: Adding Descriptive Variables
 
 1.  Adding the conference each team plays in.
 2.  Adding the division each team plays in.
@@ -338,11 +338,63 @@ all_team_data <- all_team_data %>%
     ))
 ```
 
+## Data Cleaning 7: Columns Sums and Rates (Overall and Cumulative)
+
+1.  Needed Sums
+    1.  Win
+    2.  Loss
+    3.  Games Played
+    4.  Favored
+    5.  Upset
+    6.  Close Win
+
+```{r}
+cumsum_with_na <- function(variable) {
+    ifelse(is.na(variable), NA, cumsum(ifelse(is.na(variable), 0, variable)))
+}
+
+all_team_data <- all_team_data %>%
+  group_by(team_team) %>%
+  mutate(
+    # General Sums
+    team_wins_sum = sum(team_win, na.rm = TRUE),
+    team_losses_sum = sum(team_loss, na.rm = TRUE),
+    team_games_sum = team_wins_sum + team_losses_sum,
+    team_favored_sum = sum(team_favored, na.rm = TRUE),
+    team_upset_sum = sum(team_upset, na.rm = TRUE),
+    team_close_win_sum = sum(team_close_win, na.rm = TRUE),
+    
+    # Cumulative Sums with NA handling
+    team_wins_cumsum = cumsum(ifelse(is.na(team_win), 0, team_win)),
+    team_losses_cumsum = cumsum(ifelse(is.na(team_loss), 0, team_loss)),
+    team_games_cumsum = cumsum(ifelse(is.na(team_games_sum), 0, team_games_sum)),
+    team_favored_cumsum = cumsum(ifelse(is.na(team_favored), 0, team_favored)),
+    team_upset_cumsum = cumsum(ifelse(is.na(team_upset), 0, team_upset)),
+    team_close_win_cumsum = cumsum(ifelse(is.na(team_close_win), 0, team_close_win)),
+    
+    # General Rates with NA/Zero handling
+    team_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_wins_sum / team_games_sum, 3)),
+    team_favored_gen_rate = ifelse(team_games_sum == 0, NA, round(team_favored_sum / team_games_sum, 3)),
+    team_upset_gen_rate = ifelse(team_favored_sum == 0, NA, round(team_upset_sum / team_favored_sum, 3)),
+    team_close_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_close_win_sum / team_games_sum, 3)),
+    
+    # Cumulative Rates with NA/Zero handling
+    team_win_cumsum_rate = ifelse(team_games_cumsum == 0, NA, round(team_wins_cumsum / team_games_cumsum, 3)),
+    team_favored_cumsum_rate = ifelse(team_games_cumsum == 0, NA, round(team_favored_cumsum / team_games_cumsum, 3)),
+    team_upset_cumsum_rate = ifelse(team_favored_cumsum == 0, NA, round(team_upset_cumsum / team_favored_cumsum, 3)),
+    team_close_win_cumsum_rate = ifelse(team_games_cumsum == 0, NA, round(team_close_win_cumsum / team_games_cumsum, 3))
+  ) %>%
+  ungroup()
+
+```
+
 ------------------------------------------------------------------------
 
 # Modeling & Data Cleaning
 
 ## Model Testing 1: Win Loss Model
+
+1.  Model 1: Home/Away, Average Offensive Rating, Average Defensive Rating
 
 ```{r}
 winloss_model <- glm(team_winloss ~ team_home 
@@ -382,45 +434,36 @@ winloss_df_v2 <- as.data.frame(summary_winloss_model_v2$coefficients) %>%
 
 ```{r}
 e <- exp(1)
-#Win Loss Version 1 Model
+
 all_team_data <- all_team_data %>%
+    #Win Loss Version 1 Model
     mutate(winloss_team_prob = round(100 * (1 / (1 + e^-((winloss_df$Estimate[1] * team_home) 
                                                + (winloss_df$Estimate[2] * avg_team_offrating) 
                                                + (winloss_df$Estimate[3] * avg_team_defrating) 
                                                + (winloss_df$Estimate[4] * avg_opponent_team_offrating) 
-                                               + (winloss_df$Estimate[5] * avg_opponent_team_defrating)))), 1))
-#Win Loss Version 2 Model
-all_team_data <- all_team_data %>%
+                                               + (winloss_df$Estimate[5] * avg_opponent_team_defrating)))), 1)) %>%
+    #Win Loss Version 2 Model
     mutate(winloss_v2_team_prob = round(100 * (1 / (1 + e^-((winloss_df_v2$Estimate[1] * team_home) 
                                                + (winloss_df_v2$Estimate[2] * team_weighted_offrating) 
                                                + (winloss_df_v2$Estimate[3] * team_weighted_defrating) 
                                                + (winloss_df_v2$Estimate[4] * opponent_team_weighted_offrating) 
                                                + (winloss_df_v2$Estimate[5] * opponent_team_weighted_defrating)))), 1))
-
-variable_sum_df <- all_team_data %>%
-    group_by(team_team) %>%
-    summarize(team_favored_sum = sum(team_favored, na.rm = TRUE), 
-              team_upset_sum = sum(team_upset, na.rm = TRUE)) %>%
-    mutate(team_upset_rate = round(team_upset_sum/team_favored_sum, 2))
-
-all_team_data <- all_team_data %>%
-    left_join(variable_sum_df, by = c("team_team")) %>%
-    group_by(team_team) %>%
-    mutate(team_wins_to_date = cumsum(team_win)) %>%
-    mutate(team_losses_to_date = cumsum(team_loss)) %>%
-    mutate(team_games_played_to_date = team_wins_to_date + team_losses_to_date) %>%
-    mutate(team_win_pct = round((team_wins_to_date/team_games_played_to_date), 3)) %>%
-    ungroup()
 ```
 
 ## Model Testing 2: Upset Model
 
 ```{r}
-upset_model <- glm(team_upset ~ team_upset_rate
+upset_model <- glm(team_upset ~ team_upset_gen_rate
                    + team_spread
                    , data = all_team_data, family = binomial)
 summary_upset_model <- summary(upset_model)
 summary_upset_model
+
+upset_model_v2 <- glm(team_upset ~ team_upset_cumsum_rate
+                      + team_spread
+                      , data = all_team_data, family = binomial)
+summary_upset_v2_model <- summary(upset_model_v2)
+summary_upset_v2_model
 ```
 
 ### Model Data Creation 2: Upset Model
@@ -430,16 +473,28 @@ upset_df <- as.data.frame(summary_upset_model$coefficients) %>%
     rownames_to_column(var = "Variable")%>%
     as_tibble() %>%
     filter(`Pr(>|z|)` < .05)
+upset_v2_df <- as.data.frame(summary_upset_v2_model$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
 ```
 
 ### Data Cleaning 9: Adding Upset Model
 
 ```{r}
 all_team_data <- all_team_data %>%
+    #Upset Model 1
     mutate(upset_team_prob = case_when(
         team_favored == 1 ~ round(100 * (1 / (1 + e^-(upset_df$Estimate[1] + 
-            (upset_df$Estimate[2] * team_upset_rate) + 
+            (upset_df$Estimate[2] * team_upset_gen_rate) + 
             (upset_df$Estimate[3] * team_spread)))), 1), 
+        team_favored == 0 ~ NA
+    )) %>%
+    #Upset Model 2
+    mutate(upset_v2_team_prob = case_when(
+        team_favored == 1 ~ round(100 * (1 / (1 + e^-(upset_v2_df$Estimate[1] + 
+            (upset_v2_df$Estimate[2] * team_upset_cumsum_rate) + 
+            (upset_v2_df$Estimate[3] * team_spread)))), 1), 
         team_favored == 0 ~ NA
     ))
 ```
@@ -447,6 +502,7 @@ all_team_data <- all_team_data %>%
 ## Model Testing 3: Close and Blowout Wins
 
 ```{r}
+
 close_win_model <- glm(team_close_win ~ avg_team_netrating
                    + avg_opponent_team_netrating
                       , data = all_team_data, family = binomial)
@@ -458,6 +514,13 @@ close_win_model_v2 <- glm(team_close_win ~ team_weighted_netrating
                       , data = all_team_data, family = binomial)
 summary_close_win_model_v2 <- summary(close_win_model_v2)
 summary_close_win_model_v2
+
+close_win_model_v3 <- glm(team_close_win ~ avg_team_netrating
+                   + avg_opponent_team_netrating
+                   + team_close_win_cumsum_rate
+                      , data = all_team_data, family = binomial)
+summary_close_win_model_v3 <- summary(close_win_model_v3)
+summary_close_win_model_v3
 ```
 
 ### Model Data Creation 3: PlusMinus (Margin of Victory)
@@ -472,20 +535,30 @@ close_win_df_v2 <- as.data.frame(summary_close_win_model_v2$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
     filter(`Pr(>|z|)` < .05)
+
+close_win_df_v3 <- as.data.frame(summary_close_win_model_v3$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
 ```
 
 ### Data Cleaning 10:
 
 ```{r}
 all_team_data <- all_team_data %>%
+    #Close Win Model 1
     mutate(close_win_prob = round(100 * (1 / (1 + e^-((close_win_df$Estimate[1])
            + (close_win_df$Estimate[2] * avg_team_netrating)
-           + (close_win_df$Estimate[3] * avg_opponent_team_netrating)))), 1))
-
-all_team_data <- all_team_data %>%
+           + (close_win_df$Estimate[3] * avg_opponent_team_netrating)))), 1)) %>%
+    #Close Win Model 2
     mutate(close_win_v2_prob = round(100 * (1 / (1 + e^-((close_win_df_v2$Estimate[1])
            + (close_win_df_v2$Estimate[2] * team_weighted_netrating)
-           + (close_win_df_v2$Estimate[3] * opponent_team_weighted_netrating)))), 1))
+           + (close_win_df_v2$Estimate[3] * opponent_team_weighted_netrating)))), 1)) %>%
+    #Close Win Model 3
+    mutate(close_win_v3_prob = round(100 * (1 / (1 + e^-((close_win_df_v3$Estimate[1])
+           + (close_win_df_v3$Estimate[2] * avg_team_netrating)
+           + (close_win_df_v3$Estimate[3] * avg_opponent_team_netrating)
+           + (close_win_df_v3$Estimate[4] * team_close_win_cumsum_rate)))), 1))
 ```
 
 # Data Visualizations
