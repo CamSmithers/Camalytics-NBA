@@ -335,7 +335,7 @@ all_team_data <- all_team_data %>%
         team_team == "den" | team_team == "min" | team_team == "okc" | team_team == "por" | team_team == "uta" ~ "Northwest",
         team_team == "gsw" | team_team == "lac" | team_team == "lal" | team_team == "phx" | team_team == "sac" ~ "Pacific",
         team_team == "dal" | team_team == "hou" | team_team == "mem" | team_team == "nop" | team_team == "sas" ~ "Southwest"
-    ))
+    )) 
 ```
 
 ## Data Cleaning 7: Columns Sums and Rates (Overall and Cumulative)
@@ -367,7 +367,7 @@ all_team_data <- all_team_data %>%
     # Cumulative Sums with NA handling
     team_wins_cumsum = cumsum(ifelse(is.na(team_win), 0, team_win)),
     team_losses_cumsum = cumsum(ifelse(is.na(team_loss), 0, team_loss)),
-    team_games_cumsum = cumsum(ifelse(is.na(team_games_sum), 0, team_games_sum)),
+    team_games_cumsum = team_wins_cumsum + team_losses_cumsum,
     team_favored_cumsum = cumsum(ifelse(is.na(team_favored), 0, team_favored)),
     team_upset_cumsum = cumsum(ifelse(is.na(team_upset), 0, team_upset)),
     team_close_win_cumsum = cumsum(ifelse(is.na(team_close_win), 0, team_close_win)),
@@ -376,7 +376,7 @@ all_team_data <- all_team_data %>%
     team_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_wins_sum / team_games_sum, 3)),
     team_favored_gen_rate = ifelse(team_games_sum == 0, NA, round(team_favored_sum / team_games_sum, 3)),
     team_upset_gen_rate = ifelse(team_favored_sum == 0, NA, round(team_upset_sum / team_favored_sum, 3)),
-    team_close_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_close_win_sum / team_games_sum, 3)),
+    team_close_win_gen_rate = ifelse(team_games_sum == 0, NA, round(team_close_win_sum / team_wins_sum, 3)),
     
     # Cumulative Rates with NA/Zero handling
     team_win_cumsum_rate = ifelse(team_games_cumsum == 0, NA, round(team_wins_cumsum / team_games_cumsum, 3)),
