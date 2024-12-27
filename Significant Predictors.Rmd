@@ -12,17 +12,17 @@ knitr::opts_chunk$set(echo = TRUE)
 # Testing for Significant Predictors
 
 ```{r}
-outcome_var <- "team_close_win"
+outcome_var <- "player_cover_reb"
 
 #Choosing predictors for outcome
-outcome_predictors <- setdiff(names(all_team_data), outcome_var)
+outcome_predictors <- setdiff(names(all_data), outcome_var)
 
 
 
 #Creating the structure the models will follow
 outcome_var_models <- lapply(outcome_predictors, function(significant_predictor) {
     glm(as.formula(paste(outcome_var, "~", significant_predictor)), 
-        data = all_team_data, family = binomial)
+        data = all_data, family = binomial)
 })
 
 #Running models and summary

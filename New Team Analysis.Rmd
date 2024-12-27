@@ -394,9 +394,21 @@ all_team_data <- all_team_data %>%
 
 ## Model Testing 1: Win Loss Model
 
-1.  Model 1: Home/Away, Average Offensive Rating, Average Defensive Rating
+1.  Model 1: General Model
+    -   Home/Away
+    -   Average Offensive Rating
+    -   Average Defensive Rating
+    -   Opponent Average Offensive Rating
+    -   Opponent Average Defensive Rating
+2.  Model 2: Weighted Offensive and Defensive Rating (Adding more weight to recent games)
+    -   Home/Away
+    -   Weighted Average Offensive Rating
+    -   Weighted Average Defensive Rating
+    -   Weighted Opponent Average Offensive Rating
+    -   Weighted Opponent Average Defensive Rating
 
 ```{r}
+#Win Loss Model 1
 winloss_model <- glm(team_winloss ~ team_home 
                      + avg_team_offrating 
                      + avg_team_defrating
@@ -406,6 +418,7 @@ winloss_model <- glm(team_winloss ~ team_home
 summary_winloss_model <- summary(winloss_model)
 summary_winloss_model
 
+#Win Loss Model 2
 winloss_model_v2 <- glm(team_winloss ~ team_home 
                      + team_weighted_offrating 
                      + team_weighted_defrating
@@ -419,11 +432,13 @@ summary_winloss_model_v2
 ### Model Data Creation 1: Win Loss Model
 
 ```{r}
+#Win Loss 1 Data Frame
 winloss_df <- as.data.frame(summary_winloss_model$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
     filter(`Pr(>|z|)` < .05)
 
+#Win Loss 2 Data Frame
 winloss_df_v2 <- as.data.frame(summary_winloss_model_v2$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
@@ -433,16 +448,17 @@ winloss_df_v2 <- as.data.frame(summary_winloss_model_v2$coefficients) %>%
 ### Data Cleaning 7: Adding Win Loss Model (Estimates and Probability)
 
 ```{r}
+#Used to exponentiate coefficients for probability
 e <- exp(1)
 
 all_team_data <- all_team_data %>%
-    #Win Loss Version 1 Model
+    #Win Loss 1 Model
     mutate(winloss_team_prob = round(100 * (1 / (1 + e^-((winloss_df$Estimate[1] * team_home) 
                                                + (winloss_df$Estimate[2] * avg_team_offrating) 
                                                + (winloss_df$Estimate[3] * avg_team_defrating) 
                                                + (winloss_df$Estimate[4] * avg_opponent_team_offrating) 
                                                + (winloss_df$Estimate[5] * avg_opponent_team_defrating)))), 1)) %>%
-    #Win Loss Version 2 Model
+    #Win Loss 2 Model
     mutate(winloss_v2_team_prob = round(100 * (1 / (1 + e^-((winloss_df_v2$Estimate[1] * team_home) 
                                                + (winloss_df_v2$Estimate[2] * team_weighted_offrating) 
                                                + (winloss_df_v2$Estimate[3] * team_weighted_defrating) 
@@ -452,13 +468,22 @@ all_team_data <- all_team_data %>%
 
 ## Model Testing 2: Upset Model
 
+1.  Upset Model 1: General Model (w/ Overall Rate)
+    -   Team Overall Upset Rate (All games to present date)
+    -   Spread for the Game
+2.  Upset Model 2: Cumulative Model
+    -   Team Moving Upset Rate (All games to that specific observation)
+    -   Spread for the Game
+
 ```{r}
+#Upset Model 1
 upset_model <- glm(team_upset ~ team_upset_gen_rate
                    + team_spread
                    , data = all_team_data, family = binomial)
 summary_upset_model <- summary(upset_model)
 summary_upset_model
 
+#Upset Model 2
 upset_model_v2 <- glm(team_upset ~ team_upset_cumsum_rate
                       + team_spread
                       , data = all_team_data, family = binomial)
@@ -469,10 +494,12 @@ summary_upset_v2_model
 ### Model Data Creation 2: Upset Model
 
 ```{r}
+#Upset 1 Data Frame
 upset_df <- as.data.frame(summary_upset_model$coefficients) %>%
     rownames_to_column(var = "Variable")%>%
     as_tibble() %>%
     filter(`Pr(>|z|)` < .05)
+#Upset 2 Data Frame
 upset_v2_df <- as.data.frame(summary_upset_v2_model$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
@@ -501,20 +528,33 @@ all_team_data <- all_team_data %>%
 
 ## Model Testing 3: Close and Blowout Wins
 
-```{r}
+1.  Close Win Model 1: General Model
+    -   Average Net Rating
+    -   Opponent Average Net Rating
+2.  Close Win Model 2:
+    -   Weighted Average Net Rating
+    -   Weighted Opponent Average Net Rating
+3.  Close Win Model 3:
+    -   Average Net Rating
+    -   Opponent Average Net Rating
+    -   Moving Close Win Rate (All games to that specific observation)
 
+```{r}
+#Close Win Model 1
 close_win_model <- glm(team_close_win ~ avg_team_netrating
                    + avg_opponent_team_netrating
                       , data = all_team_data, family = binomial)
 summary_close_win_model <- summary(close_win_model)
 summary_close_win_model
 
+#Close Win Model 2
 close_win_model_v2 <- glm(team_close_win ~ team_weighted_netrating
                    + opponent_team_weighted_netrating
                       , data = all_team_data, family = binomial)
 summary_close_win_model_v2 <- summary(close_win_model_v2)
 summary_close_win_model_v2
 
+#Close Win Model 3
 close_win_model_v3 <- glm(team_close_win ~ avg_team_netrating
                    + avg_opponent_team_netrating
                    + team_close_win_cumsum_rate
@@ -526,16 +566,19 @@ summary_close_win_model_v3
 ### Model Data Creation 3: PlusMinus (Margin of Victory)
 
 ```{r}
+#Close Win 1 Data Frame 
 close_win_df <- as.data.frame(summary_close_win_model$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
     filter(`Pr(>|z|)` < .05)
 
+#Close Win 2 Data Frame
 close_win_df_v2 <- as.data.frame(summary_close_win_model_v2$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
     filter(`Pr(>|z|)` < .05)
 
+#Close Win 3 Data Frame
 close_win_df_v3 <- as.data.frame(summary_close_win_model_v3$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
