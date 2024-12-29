@@ -224,6 +224,13 @@ all_data <- all_data %>%
 
 ## Model Testing 2: Player Rebounds
 
+```{r}
+player_reb_model <- glm(player_cover_reb ~ player_gen_player_reb
+                        + player_cover_reb_cumsum_rate
+                        , data = all_data, family = binomial)
+summary(player_reb_model)
+```
 
 
 ## Model Testing 3: Player Assists
+

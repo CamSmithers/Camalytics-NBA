@@ -107,7 +107,8 @@ all_team_data <- all_team_data %>%
         team_favored == 1 & team_plusminus < 0 ~ 1,
         team_favored == 1 & team_plusminus > 0 ~ 0,
         TRUE ~ NA
-    ))
+    )) %>%
+    mutate(team_missed_shots = team_fga - team_fgm)
 ```
 
 ## Data Cleaning 4: Team Averages
@@ -135,7 +136,8 @@ average_team <- all_team_data %>% #Creating data frame with averages of specific
         team_defrating = round(mean(team_defrating, na.rm = TRUE), 2),
         team_netrating = round(mean(team_netrating, na.rm = TRUE), 2),
         team_tov = round(mean(team_tov, na.rm = TRUE), 2),
-        team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
+        team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2),
+        team_missed_shots = round(mean(team_missed_shots, na.rm = TRUE))
     ) %>%
     rename_with(~ paste0("avg_", .)) #Renaming for easier recognition of variables
 
@@ -196,7 +198,8 @@ opponent_average_team <- all_team_data %>%
         opponent_team_defrating = round(mean(team_defrating, na.rm = TRUE), 2),
         opponent_team_netrating = round(mean(team_netrating, na.rm = TRUE), 2),
         opponent_team_tov = round(mean(team_tov, na.rm = TRUE), 2),
-        opponent_team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2)
+        opponent_team_plusminus = round(mean(team_plusminus, na.rm = TRUE), 2),
+        opponent_team_missed_shots = round(mean(team_missed_shots, na.rm = TRUE))
     ) %>%
     rename_with(~ paste0("avg_", .))
 
