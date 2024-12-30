@@ -26,9 +26,10 @@ winloss_daily_analysis <- all_team_data %>%
 
 ```{r}
 winloss_v3_daily_analysis <- all_team_data %>%
-    select(select(team_date, team_team, team_home, avg_team_offrating, avg_team_defrating, 
-           team_opponent, avg_opponent_team_offrating, avg_opponent_team_defrating, team_upset_cumsum_rate, winloss_v3_team_prob) %>%
-    filter(team_date == Sys.Date()))
+    select(team_date, team_team, team_home, avg_team_offrating, avg_team_defrating, 
+           team_opponent, avg_opponent_team_offrating, avg_opponent_team_defrating,
+           team_upset_cumsum_rate, winloss_v3_team_prob) %>%
+    filter(team_date == Sys.Date())
 ```
 
 
@@ -38,7 +39,8 @@ winloss_v3_daily_analysis <- all_team_data %>%
 
 ```{r}
 upset_daily_analysis <- all_team_data %>%
-    select(team_date, team_team, team_home, team_opponent, team_favored, team_upset_gen_rate, team_spread, upset_team_prob) %>%
+    select(team_date, team_team, team_home, team_opponent, team_favored, 
+           team_upset_gen_rate, team_spread, upset_team_prob) %>%
     filter(team_date == Sys.Date())
 ```
 
@@ -46,7 +48,8 @@ upset_daily_analysis <- all_team_data %>%
 
 ```{r}
 upset_v2_daily_analysis <- all_team_data %>%
-    select(team_date, team_team, team_home, team_opponent, team_favored, team_upset_cumsum_rate, team_spread, upset_v2_team_prob) %>%
+    select(team_date, team_team, team_home, team_opponent, team_favored, 
+           team_upset_cumsum_rate, team_spread, upset_v2_team_prob) %>%
     filter(team_date == Sys.Date())
 ```
 
@@ -57,7 +60,8 @@ upset_v2_daily_analysis <- all_team_data %>%
 
 ```{r}
 close_win_daily_analysis <- all_team_data %>%
-    select(team_date, team_team, team_home, avg_team_netrating, team_opponent, avg_opponent_team_netrating, close_win_prob) %>%
+    select(team_date, team_team, team_home, avg_team_netrating, team_opponent, 
+           avg_opponent_team_netrating, close_win_prob) %>%
     filter(team_date == Sys.Date())
 ```
 
@@ -65,7 +69,8 @@ close_win_daily_analysis <- all_team_data %>%
 
 ```{r}
 close_win_v3_daily_analysis <- all_team_data %>%
-    select(team_date, team_team, team_home, avg_team_netrating, team_opponent, avg_opponent_team_netrating, team_close_win_cumsum_rate, close_win_v3_prob) %>%
+    select(team_date, team_team, team_home, avg_team_netrating, team_opponent, 
+           avg_opponent_team_netrating, team_close_win_cumsum_rate, close_win_v3_prob) %>%
     filter(team_date == Sys.Date())
 ```
 
@@ -74,7 +79,7 @@ close_win_v3_daily_analysis <- all_team_data %>%
 ```{r}
 daily_team_outcomes <- all_team_data %>%
     select(team_date, team_home, team_team, team_favored, team_opponent, winloss_team_prob, 
-           upset_v2_team_prob, close_win_v3_prob) %>%
+           winloss_v3_team_prob, close_win_v3_prob, upset_v2_team_prob) %>%
     filter(team_date == Sys.Date())
 ```
 
@@ -169,7 +174,17 @@ cover_reb_daily_analysis <- all_data %>%
 ```{r}
 cover_ast_daily_analysis <- all_data %>%
     select(player_date, player_team, player_player, team_opponent, player_gen_player_ast,
-           avg_player_ast, player_cover_ast_cumsum_rate)
+           avg_player_ast, player_cover_ast_cumsum_rate, cover_ast_v1_prob) %>%
+    filter(player_date == Sys.Date())
+```
+
+# Player Models Data Frame
+
+```{r}
+daily_player_outcomes <- all_data %>%
+    select(player_date, player_team, player_player, team_opponent, cover_pts_v3_prob, 
+           cover_reb_v1_prob, cover_ast_v1_prob) %>%
+    filter(player_date == Sys.Date())
 ```
 
 
