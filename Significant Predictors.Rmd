@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Testing for Significant Predictors
 
 ```{r}
-outcome_var <- "player_cover_reb"
+outcome_var <- "player_cover_ast"
 
 #Choosing predictors for outcome
 outcome_predictors <- setdiff(names(all_data), outcome_var)

@@ -65,32 +65,60 @@ winloss_v1_plot <- ggplot(winloss_v1_outcome_data, aes(x = winloss_team_prob, fi
 winloss_v1_plot
 ```
 
-
-## Win Loss: Version 2
+# Upset Models
 
 ```{r}
-winloss_v2_outcome_data <- winloss_v2_files %>%
-    lapply(read_csv) %>%
-    bind_rows()
-# Creating intermediate data frame to add 
-winloss_v2_intermediate <- winloss_v2_outcome_data %>%
-    select(team_date, team_team, winloss_v2_team_prob) %>%
-    rename("team_int" = "team_team", "winloss_v2_team_prob_int" = "winloss_v2_team_prob")
+upset_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Upset1"
+upset_v1_files <- list.files(upset_v1_folder, pattern = "\\.csv",
+                             full.names = TRUE)
 
-winloss_v2_outcome_data <- winloss_v2_outcome_data %>%
-    left_join(winloss_v2_intermediate, by = c("team_opponent" = "team_int", "team_date" = "team_date")) %>%
-    rename("winloss_v2_opponent_team_prob" = "winloss_v2_team_prob_int")
-
-winloss_v2_outcome_data <- winloss_v2_outcome_data %>%
-    mutate(winloss_v2_model_pick = ifelse(winloss_v2_team_prob > winloss_v2_opponent_team_prob, 1, 0)) %>%
-    mutate(winloss_v2_model_range = winloss_v2_team_prob - winloss_v2_opponent_team_prob)
-
-winloss_v2_all_team_data <- all_team_data %>%
-    select(team_team, team_date, team_winloss, team_favored)
-
-winloss_v2_outcome_data <- winloss_v2_outcome_data %>%
-    left_join(winloss_v2_all_team_data, by = c("team_team", "team_date")) %>%
-    filter(!is.na(team_winloss)) %>%
-    mutate(my_predictions = ifelse(winloss_v2_model_pick == team_winloss, 1, 0)) %>%
-    mutate(fd_predictions = ifelse(team_favored == team_winloss, 1, 0))
+upset_v2_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Upset2"
+upset_v2_files <- list.files(upset_v2_folder, pattern = "\\.csv",
+                             full.names = TRUE)
 ```
+
+# Close Win Models
+
+```{r}
+close_win_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/CloseWin1"
+close_win_v1_files <- list.files(close_win_v1_folder, pattern = "\\.csv",
+                                 full.names = TRUE)
+
+close_win_v3_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/CloseWin3"
+close_win_v3_files <- list.files(close_win_v3_folder, pattern = "\\.csv",
+                                 full.names = TRUE)
+```
+
+
+# Player Points Models
+
+```{r}
+player_pts_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts1"
+player_pts_v1_files <- list.files(player_pts_v1_folder, pattern = "\\.csv",
+                                  full.names = TRUE)
+
+player_pts_v2_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts2"
+player_pts_v2_files <- list.files(player_pts_v2_folder, pattern = "\\.csv",
+                                  full.names = TRUE)
+
+player_pts_v3_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts3"
+player_pts_v3_files <- list.files(player_pts_v3_folder, pattern = "\\.csv",
+                                  full.names = TRUE)
+```
+
+# Player Rebounds Models
+
+```{r}
+player_reb_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerReb1"
+player_reb_v1_files <- list.files(player_reb_v1_folder, pattern = "\\.csv",
+                                  full.names = TRUE)
+```
+
+# Player Assists Models
+
+```{r}
+player_ast_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerAst1"
+player_ast_v1_files <- list.files(player_ast_v1_folder, pattern = "\\.csv",
+                                  full.names = TRUE)
+```
+

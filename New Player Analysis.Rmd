@@ -54,9 +54,6 @@ all_player_data <- all_player_data %>%
 ## Data Cleaning 2: Important Outcomes
 
 ```{r}
-cumsum_with_na <- function(variable) {
-    ifelse(is.na(variable), NA, cumsum(ifelse(is.na(variable), 0, variable)))
-}
 
 all_player_data <- all_player_data %>%
   mutate(
@@ -131,14 +128,7 @@ average_player_last10 <- all_player_data %>%
     rename_with(~ paste0("avg_", ., "_last10"))
 
 average_player_full <- average_player %>%
-    left_join(average_player_last10, by = c("avg_player_player" = "avg_player_player_last10")) %>%
-    mutate(player_weighted_pts  = (avg_player_pts * .50) + (avg_player_pts_last10 * .50)) %>%
-    mutate(player_weighted_reb  = (avg_player_reb * .50) + (avg_player_ast_last10 * .50)) %>%
-    mutate(player_weighted_ast  = (avg_player_ast * .50) + (avg_player_reb_last10 * .50)) %>%
-    mutate(player_weighted_tspct  = (avg_player_tspct * .50) + (avg_player_tspct_last10 * .50)) %>%
-    mutate(player_weighted_offrating  = (avg_player_offrating * .50) + (avg_player_offrating_last10 * .50)) %>%
-    mutate(player_weighted_defrating  = (avg_player_defrating * .50) + (avg_player_defrating_last10 * .50)) %>%
-    mutate(player_weighted_tov  = (avg_player_tov * .50) + (avg_player_tov_last10 * .50))
+    left_join(average_player_last10, by = c("avg_player_player" = "avg_player_player_last10"))
     
 all_player_data <- all_player_data %>%
     left_join(average_player_full, by = c("player_player" = "avg_player_player"))
@@ -225,12 +215,60 @@ all_data <- all_data %>%
 ## Model Testing 2: Player Rebounds
 
 ```{r}
-player_reb_model <- glm(player_cover_reb ~ player_gen_player_reb
+player_reb_model_v1 <- glm(player_cover_reb ~ player_gen_player_reb
                         + player_cover_reb_cumsum_rate
                         , data = all_data, family = binomial)
-summary(player_reb_model)
+summary_player_reb_model_v1 <- summary(player_reb_model_v1)
+summary_player_reb_model_v1
+```
+
+### Model Data Creating 2: Cover Player Rebounds
+
+```{r}
+player_reb_df_v1 <- as.data.frame(summary_player_reb_model_v1$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+```
+
+
+### Data Cleaning 6: Adding Player Rebounds Model
+
+```{r}
+all_data <- all_data %>%
+    mutate(cover_reb_v1_prob = round(100 * (1 / (1 + e^-((player_reb_df_v1$Estimate[1])
+                                                         + (player_reb_df_v1$Estimate[2] * player_gen_player_reb)
+                                                         + (player_reb_df_v1$Estimate[3] * player_cover_reb_cumsum_rate)))), 1))
 ```
 
 
 ## Model Testing 3: Player Assists
+
+```{r}
+player_ast_model_v1 <- glm(player_cover_ast ~ player_gen_player_ast
+                        + avg_player_ast
+                        + player_cover_ast_cumsum_rate
+                        , data = all_data, family = binomial)
+summary_player_ast_model_v1 <- summary(player_ast_model_v1)
+summary_player_ast_model_v1
+```
+
+### Model Data Creating 3: Cover Player Assist
+
+```{r}
+player_ast_df_v1 <- as.data.frame(summary_player_ast_model_v1$coefficients) %>%
+    rownames_to_column(var = "Variable") %>%
+    as_tibble() %>%
+    filter(`Pr(>|z|)` < .05)
+```
+
+### Data Cleaning 7: Adding Player Assists Model
+
+```{r}
+all_data <- all_data %>%
+    mutate(cover_ast_v1_prob = round(100 * (1 / (1 + e^-((player_ast_df_v1$Estimate[1])
+                                                         + (player_ast_df_v1$Estimate[2] * player_gen_player_ast)
+                                                         + (player_ast_df_v1$Estimate[3] * avg_player_ast)
+                                                         + (player_ast_df_v1$Estimate[4] * player_cover_ast_cumsum_rate)))), 1))
+```
 
