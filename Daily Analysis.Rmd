@@ -79,7 +79,7 @@ close_win_v3_daily_analysis <- all_team_data %>%
 ```{r}
 daily_team_outcomes <- all_team_data %>%
     select(team_date, team_home, team_team, team_favored, team_opponent, winloss_team_prob, 
-           winloss_v3_team_prob, close_win_v3_prob, upset_v2_team_prob) %>%
+          close_win_v3_prob, upset_v2_team_prob) %>%
     filter(team_date == Sys.Date())
 ```
 
