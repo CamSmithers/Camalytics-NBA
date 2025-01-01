@@ -9,17 +9,20 @@ date: "`r Sys.Date()`"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(broom)
+```
+
 # Win Loss Models
 
 ```{r}
 #WinLoss Model 1
 winloss_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/WinLoss1"
 winloss_v1_files <- list.files(winloss_v1_folder, pattern = "\\.csv",
-                               full.names = TRUE)
-
-#WinLoss Model 2
-winloss_v2_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/WinLoss2"
-winloss_v2_files <- list.files(winloss_v2_folder, patter = "\\.csv",
                                full.names = TRUE)
 ```
 
@@ -50,19 +53,43 @@ winloss_v1_outcome_data <- winloss_v1_outcome_data %>%
     filter(!is.na(team_winloss)) %>%
     mutate(my_predictions = ifelse(winloss_model_pick == team_winloss, 1, 0)) %>%
     mutate(fd_predictions = ifelse(team_favored == team_winloss, 1, 0))
+
+winloss_v1_outcome_data <- winloss_v1_outcome_data %>%
+    mutate(prediction_range = case_when(
+        winloss_team_prob < 100 & winloss_team_prob > 70.0 ~ "Safe",
+        winloss_team_prob < 70.0 & winloss_team_prob > 50.0 ~ "Risky",
+        winloss_team_prob < 50.0 ~ "Unsafe"
+    ))
 ```
 
 ### Win Loss: Version 1: Plots
 
 ```{r}
-winloss_v1_plot_data <- winloss_v1_outcome_data %>%
-    filter(winloss_team_prob > 50.0)
-
 winloss_v1_plot <- ggplot(winloss_v1_outcome_data, aes(x = winloss_team_prob, fill = as.factor(team_winloss))) + 
     geom_histogram(color = "black") + 
     scale_y_continuous(breaks = seq(0, 20, by = 2))
 
 winloss_v1_plot
+
+winloss_v1_plot2 <- ggplot(winloss_v1_outcome_data, aes(x = as.factor(team_winloss), fill = as.factor(prediction_range))) +
+    geom_bar(position = "dodge", color = "black") + 
+    geom_text(
+    stat = "count",
+    aes(label = after_stat(count)),
+    position = position_dodge(width = 0.9),
+    vjust = -0.3  # Position text above bars
+  ) +
+    scale_y_continuous(breaks = seq(0, 80, by = 10)) +
+    scale_x_discrete(labels = c("0" = "Loss", "1" = "Win")) +
+    scale_fill_brewer(palette = "Set3",
+                      name = "Prediction Range") + 
+    labs(
+        x = "Losses vs Wins",
+        y = "Amount of Losses or Wins")
+
+winloss_v1_plot2
+
+
 ```
 
 # Upset Models
@@ -77,6 +104,22 @@ upset_v2_files <- list.files(upset_v2_folder, pattern = "\\.csv",
                              full.names = TRUE)
 ```
 
+## Upset: Version 1
+
+```{r}
+upset_v1_outcome_data <- upset_v1_files %>%
+    lapply(read_csv) %>%
+    bind_rows()
+```
+
+## Upset: Version 2
+
+```{r}
+upset_v2_outcome_data <- upset_v2_files %>%
+    lapply(read_csv) %>%
+    bind_rows()
+```
+
 # Close Win Models
 
 ```{r}
@@ -88,37 +131,3 @@ close_win_v3_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predic
 close_win_v3_files <- list.files(close_win_v3_folder, pattern = "\\.csv",
                                  full.names = TRUE)
 ```
-
-
-# Player Points Models
-
-```{r}
-player_pts_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts1"
-player_pts_v1_files <- list.files(player_pts_v1_folder, pattern = "\\.csv",
-                                  full.names = TRUE)
-
-player_pts_v2_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts2"
-player_pts_v2_files <- list.files(player_pts_v2_folder, pattern = "\\.csv",
-                                  full.names = TRUE)
-
-player_pts_v3_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerPts3"
-player_pts_v3_files <- list.files(player_pts_v3_folder, pattern = "\\.csv",
-                                  full.names = TRUE)
-```
-
-# Player Rebounds Models
-
-```{r}
-player_reb_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerReb1"
-player_reb_v1_files <- list.files(player_reb_v1_folder, pattern = "\\.csv",
-                                  full.names = TRUE)
-```
-
-# Player Assists Models
-
-```{r}
-player_ast_v1_folder <- "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/PlayerAst1"
-player_ast_v1_files <- list.files(player_ast_v1_folder, pattern = "\\.csv",
-                                  full.names = TRUE)
-```
-

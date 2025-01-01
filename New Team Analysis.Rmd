@@ -24,7 +24,6 @@ library(purrr)
 library(stringr)
 library(broom)
 library(parameters)
-library(ggplot2)
 ```
 
 # Data Cleaning
