@@ -1,0 +1,215 @@
+---
+title: "NBA Regression Analysis"
+author: "Cam Smithers"
+output: 
+  html_notebook: 
+    theme: paper
+---
+
+# Camalytics
+
+## Loading Packages
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(foreign)
+library(nnet)
+library(readr)
+```
+
+## Loading in All Data
+
+```{r warning=FALSE}
+#Running script that contains all data (teams and players)
+source("/Users/camsmithers/Desktop/NBA Project/Main/Data/DataScript.R")
+
+#Joining all team data into one data frame
+all_team_data <- team_traditional %>%
+    left_join(team_advanced, by = c("team", 'date')) %>% 
+    left_join(team_misc, by = c("team", "date")) %>%
+    left_join(team_scoring, by = c("team", "date")) %>%
+    left_join(team_outcome, by = c("team", "date"))
+```
+
+## Data Cleaning 1: General Cleaning
+
+```{r}
+all_team_data <- all_team_data %>%
+    dplyr::select(-opponent, -opponent.y, -opponent.x.x, -opponent.y.y, -home, -home.y, -home.x.x,
+           -home.y.y, -blk.y, -pf.y) %>% #Removing duplicated columns
+    rename("opponent" = "opponent.x", "blk" = "blk.x", "pf" = "pf.x", "home" = "home.x") %>% #Wanted to keep specific duplicated to be used as the main
+    dplyr::select(team, home, everything()) #Re-ordering variables for better visualization
+team_temporary_df <- all_team_data %>% #Temporary data frame used add opponents' points scored
+    dplyr::select(team, opponent, date, pts) %>%
+    rename("team_1" = "team", "team_2" = "opponent")
+
+all_team_data <- all_team_data %>% #Joining opponent points to original data frame
+    left_join(team_temporary_df, by = c("team" = "team_2", "date")) %>%
+    rename("opponent_pts" = "pts.y", "pts" = "pts.x") %>%
+    dplyr::select(-team_1)
+
+all_team_data <- all_team_data %>% #Re-ordering for better visualization
+    dplyr::select(date, home, team, pts, opponent, opponent_pts, everything()) %>%
+    rename_with(~ paste0("team_", .)) #Adding _team to each observation for easier recognition of variable for later cleaning, model building, and joins
+```
+
+## Data Cleaning 2: Creating Variables for Outcomes
+
+1.  Primary Outcome: Game Outcome Type
+2.  Changing Variable to Factor
+3.  Creating Binary Variables for Primary Outcomes
+4.  Secondary Outcome: Game Outcome without Magnitude
+
+```{r}
+all_team_data <- all_team_data %>%
+    #Primary Outcome: Types of Outcome
+    mutate(team_game_outcome = case_when(
+        team_plusminus < 0 ~ 1,
+        team_plusminus <= 10 & team_plusminus > 0 ~ 2,
+        team_plusminus > 10 ~ 3
+    )) %>%
+    #Primary Outcome as Binary
+    mutate(team_loss = ifelse(team_game_outcome == 1, 1, 0),
+           team_close_win = ifelse(team_game_outcome == 2, 1, 0),
+           team_blowout_win = ifelse(team_game_outcome == 3, 1, 0)) %>%
+    #Secondary Outcome 1: Sub-Type of Outcome
+    mutate(team_win = ifelse(team_game_outcome == 2 | team_game_outcome == 3, 1, 0)) %>%
+    #
+    mutate(team_game_outcome = factor(team_game_outcome,
+                                      levels = c(1, 2, 3),
+                                      labels = c("Loss", "Close_Win", "Blowout_Win")))
+    
+```
+
+## Data Cleaning 3: Team Averages
+
+```{r}
+all_team_average <- all_team_data %>%
+    group_by(team_team) %>%
+    summarize(
+        #Major Statistical Categories
+        team_avg_pts = round(mean(team_pts, na.rm = TRUE), 1),
+        team_avg_pts_allowed = round(mean(team_opponent_pts, na.rm = TRUE), 1),
+        team_avg_reb = round(mean(team_reb, na.rm = TRUE), 1),
+        team_avg_ast = round(mean(team_ast, na.rm = TRUE), 1),
+        team_avg_tov = round(mean(team_tov, na.rm = TRUE), 1),
+        #Advanced Metrics
+        team_avg_offrating = round(mean(team_offrating, na.rm = TRUE), 1),
+        team_avg_defrating = round(mean(team_defrating, na.rm = TRUE), 1),
+        team_avg_netrating = round(mean(team_netrating, na.rm = TRUE), 1),
+        team_avg_rebpct = round(mean(team_rebpct, na.rm = TRUE), 1),
+        team_avg_astpct = round(mean(team_astpct, na.rm = TRUE), 1)
+    )
+
+all_opponent_average <- all_team_data %>%
+    group_by(team_team) %>%
+    summarize(
+        #Major Statistical Categories
+        opponent_avg_pts = round(mean(team_pts, na.rm = TRUE), 1),
+        opponent_avg_pts_allowed = round(mean(team_opponent_pts, na.rm = TRUE), 1),
+        opponent_avg_reb = round(mean(team_reb, na.rm = TRUE), 1),
+        opponent_avg_ast = round(mean(team_ast, na.rm = TRUE), 1),
+        opponent_avg_tov = round(mean(team_tov, na.rm = TRUE), 1),
+        #Advanced Metrics
+        opponent_avg_offrating = round(mean(team_offrating, na.rm = TRUE), 1),
+        opponent_avg_defrating = round(mean(team_defrating, na.rm = TRUE), 1),
+        opponent_avg_netrating = round(mean(team_netrating, na.rm = TRUE), 1),
+        opponent_avg_rebpct = round(mean(team_rebpct, na.rm = TRUE), 1),
+        opponent_avg_astpct = round(mean(team_astpct, na.rm = TRUE), 1)
+    )
+
+all_league_average <- all_team_data %>%
+    summarize(
+        #Major Statistical Categories
+        league_avg_pts = round(mean(team_pts, na.rm = TRUE), 1),
+        league_avg_pts_allowed = round(mean(team_opponent_pts, na.rm = TRUE), 1),
+        league_avg_reb = round(mean(team_reb, na.rm = TRUE), 1),
+        league_avg_ast = round(mean(team_ast, na.rm = TRUE), 1),
+        league_avg_tov = round(mean(team_tov, na.rm = TRUE), 1),
+        #Advanced Metrics
+        league_avg_offrating = round(mean(team_offrating, na.rm = TRUE), 1),
+        league_avg_defrating = round(mean(team_defrating, na.rm = TRUE), 1),
+        league_avg_netrating = round(mean(team_netrating, na.rm = TRUE), 1),
+        league_avg_rebpct = round(mean(team_rebpct, na.rm = TRUE), 1),
+        league_avg_astpct = round(mean(team_astpct, na.rm = TRUE), 1)
+    )
+
+all_team_data <- all_team_data %>%
+    left_join(all_team_average, by = c("team_team" = "team_team")) %>%
+    left_join(all_opponent_average, by = c("team_opponent" = "team_team"))
+
+all_team_data <- data.frame(all_team_data, all_league_average)
+```
+
+## Data Cleaning 4: Metrics for Measurement
+
+```{r}
+all_team_data <- all_team_data %>%
+    #Statistics Above League Average
+    mutate(pts_bt_league = ifelse(team_avg_pts > league_avg_pts, 1, 0),
+           pts_allowed_bt_league = ifelse(team_avg_pts < league_avg_pts_allowed, 1, 0),
+           reb_bt_league = ifelse(team_avg_reb > league_avg_reb, 1, 0),
+           ast_bt_league = ifelse(team_avg_ast > league_avg_ast, 1, 0),
+           tov_bt_league = ifelse(team_avg_tov < league_avg_tov, 1, 0),
+           offrating_bt_league = ifelse(team_avg_offrating > league_avg_offrating, 1, 0),
+           defrating_bt_league = ifelse(team_avg_defrating < league_avg_defrating, 1, 0),
+           netrating_bt_league = ifelse(team_avg_netrating > league_avg_netrating, 1, 0),
+           rebpct_bt_league = ifelse(team_avg_rebpct > league_avg_rebpct, 1, 0),
+           astpct_bt_league = ifelse(team_avg_astpct > league_avg_astpct, 1, 0)) %>%
+    #Count of Statistics Above League Average
+    mutate(stats_bt_league = pts_bt_league + pts_allowed_bt_league + reb_bt_league + tov_bt_league + 
+               offrating_bt_league + defrating_bt_league + netrating_bt_league + 
+               rebpct_bt_league + astpct_bt_league)
+```
+
+# Model Building
+
+```{r}
+options(scipen = 999)
+
+test <- multinom(team_game_outcome ~ team_avg_offrating
+                 + team_avg_defrating
+                 + opponent_avg_offrating
+                 + opponent_avg_defrating, data = all_team_data)
+test_summary <- summary(test)
+test_summary
+
+z_values <- test_summary$coefficients / test_summary$standard.errors
+p_values <- (1 - pnorm(abs(z_values), 0, 1)) * 2
+p_values
+
+exp_coefs <- exp(coef(test))
+exp_coefs
+```
+
+```{r}
+predictions <- fitted(test)
+
+new_all_team_data <- all_team_data %>%
+    filter(team_date == Sys.Date())
+
+predicted_values <- predict(test, newdata = new_all_team_data, type = "probs")
+
+daily_data <- cbind(new_all_team_data, predicted_values)
+```
+
+## Data Cleaning 5: Predictions in Data Frame
+
+```{r}
+temporary_df_2 <- daily_data %>%
+    dplyr::select(team_team, team_date, Loss) %>%
+    rename("Opponent_Loss" = "Loss", "team_dummy" = "team_team")
+
+daily_data <- daily_data %>%
+    left_join(temporary_df_2, by = c("team_opponent" = "team_dummy", "team_date"))
+
+daily_data <- daily_data %>%
+    mutate(Projected_Outcome = ifelse(Loss < Opponent_Loss, 1, 0)) %>%
+    mutate(Projected_Outcome_Type = case_when(
+        Projected_Outcome == 1 ~ ifelse(Close_Win > Blowout_Win, "Close Win", "Blowout Win"),
+        TRUE ~ NA_character_
+    ))
+```
+
