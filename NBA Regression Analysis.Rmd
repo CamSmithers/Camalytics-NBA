@@ -209,7 +209,10 @@ daily_data <- daily_data %>%
     mutate(Projected_Outcome = ifelse(Loss < Opponent_Loss, 1, 0)) %>%
     mutate(Projected_Outcome_Type = case_when(
         Projected_Outcome == 1 ~ ifelse(Close_Win > Blowout_Win, "Close Win", "Blowout Win"),
-        TRUE ~ NA_character_
+        TRUE ~ "Loss"
     ))
+
+daily_data <- daily_data %>%
+    dplyr::select(team_team, team_opponent, team_date, Projected_Outcome, Projected_Outcome_Type)
 ```
 
