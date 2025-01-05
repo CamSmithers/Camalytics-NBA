@@ -107,6 +107,7 @@ all_team_average_2 <- all_team_data %>%
     group_by(team_team) %>%
     mutate(team_cummean_offrating = round(cummean(team_offrating), 1),
            team_cummean_defrating = round(cummean(team_defrating), 1)) %>%
+    fill(team_cummean_offrating, team_cummean_defrating, .direction = "down") %>%
     ungroup() %>%
     select(team_team, team_date, team_cummean_offrating, team_cummean_defrating)
 
@@ -131,6 +132,7 @@ all_opponent_average_2 <- all_team_data %>%
     group_by(team_team) %>%
     mutate(opponent_cummean_offrating = round(cummean(team_offrating), 1),
            opponent_cummean_defrating = round(cummean(team_defrating), 1)) %>%
+    fill(opponent_cummean_offrating, opponent_cummean_defrating, .direction = "down") %>%
     ungroup() %>%
     select(team_team, team_date, opponent_cummean_offrating, opponent_cummean_defrating)
 
@@ -235,7 +237,7 @@ overall_avg_daily_data <- cbind(new_all_team_data, overall_avg_predicted_values)
 
 ### Cumulative Average Model
 
-```{r eval=FALSE, eval=FALSE}
+```{r}
 #Daily Data Set
 new_all_team_data_2 <- all_team_data %>%
     filter(team_date == Sys.Date())
@@ -273,14 +275,14 @@ View(overall_avg_daily_data)
 
 ### Cumulative Average Model
 
-```{r eval=FALSE, include=FALSE}
+```{r}
 #Cumulative Average
 temporary_df_3 <- cumulative_avg_daily_data %>%
     dplyr::select(team_team, team_date, loss) %>%
     rename("opponent_loss" = "loss", "team_dummy" = "team_team")
 
 cumulative_avg_daily_data <- cumulative_avg_daily_data %>%
-    left_join(temporary_df_2, by = c("team_opponent" = "team_dummy", "team_date"))
+    left_join(temporary_df_3, by = c("team_opponent" = "team_dummy", "team_date"))
 
 cumulative_avg_daily_data <- cumulative_avg_daily_data %>%
     mutate(projected_outcome = ifelse(loss < opponent_loss, 1, 0)) %>%
