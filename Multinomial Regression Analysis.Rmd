@@ -1,10 +1,13 @@
 ---
-title: "NBA Regression Analysis"
+title: "Multinomial Regression Analysis"
 author: "Cam Smithers"
-output: 
-  html_notebook: 
-    theme: paper
+date: "`r Sys.Date()`"
+output: html_document
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 # Camalytics
 
@@ -64,22 +67,20 @@ all_team_data <- all_team_data %>% #Re-ordering for better visualization
 
 ```{r}
 all_team_data <- all_team_data %>%
-    #Primary Outcome: Types of Outcome
+    #Primary Outcome: Types of Outcomes
     mutate(team_game_outcome = case_when(
-        team_plusminus < 0 ~ 1,
-        team_plusminus <= 10 & team_plusminus > 0 ~ 2,
-        team_plusminus > 10 ~ 3
+        team_plusminus > 0 & team_plusminus <= 10 ~ 1,
+        team_plusminus < 0 & team_plusminus >= -10 ~ 2,
+        team_plusminus > 10 ~ 3,
+        team_plusminus < -10 ~ 4
     )) %>%
-    #Primary Outcome as Binary
-    mutate(team_loss = ifelse(team_game_outcome == 1, 1, 0),
-           team_close_win = ifelse(team_game_outcome == 2, 1, 0),
-           team_blowout_win = ifelse(team_game_outcome == 3, 1, 0)) %>%
-    #Secondary Outcome 1: Sub-Type of Outcome
-    mutate(team_win = ifelse(team_game_outcome == 2 | team_game_outcome == 3, 1, 0)) %>%
-    #
+    #Changing Outcome to Factor for Analysis
     mutate(team_game_outcome = factor(team_game_outcome,
-                                      levels = c(1, 2, 3),
-                                      labels = c("loss", "close_win", "blowout_win")))
+                                        levels = c(1, 2, 3, 4),
+                                        labels = c("close_win", "close_loss", "blowout_win", "blowout_loss"))) %>%
+    #Secondary Outcome: Sub-Type of Outcome
+    mutate(team_win = ifelse(team_game_outcome == 1 | team_game_outcome == 3, 1, 0),
+           team_loss = ifelse(team_game_outcome == 2 | team_game_outcome == 4, 1, 0))
     
 ```
 
@@ -186,24 +187,9 @@ all_team_data <- all_team_data %>%
 
 ```{r}
 options(scipen = 999)
-
-#Overall Average Model
-
-overall_avg <- multinom(team_game_outcome ~ team_avg_offrating
-                 + team_avg_defrating
-                 + opponent_avg_offrating
-                 + opponent_avg_defrating, data = all_team_data)
-overall_avg_summary <- summary(overall_avg)
-overall_avg_summary
-
-overall_avg_z_values <- overall_avg_summary$coefficients / overall_avg_summary$standard.errors
-overall_avg_p_values <- (1 - pnorm(abs(overall_avg_z_values), 0, 1)) * 2
-overall_avg_p_values
-
-overall_avg_exp_coefs <- exp(coef(overall_avg_summary))
-overall_avg_exp_coefs
-
 #Cumulative Average Model
+
+#all_team_data$team_game_outcome <- relevel(all_team_data$team_game_outcome, ref = "x")
 
 cumulative_avg <- multinom(team_game_outcome ~ team_cummean_offrating
                            + team_cummean_defrating
@@ -222,76 +208,27 @@ cumulative_avg_exp_coefs
 
 ## Model Predictions
 
-### Overall Average Model
-
-```{r}
-#Daily Data Set
-new_all_team_data <- all_team_data %>%
-    filter(team_date == Sys.Date())
-
-#Overall Average Model
-overall_avg_predictions <- fitted(overall_avg_summary)
-overall_avg_predicted_values <- predict(overall_avg, newdata = new_all_team_data, type = "probs")
-overall_avg_daily_data <- cbind(new_all_team_data, overall_avg_predicted_values)
-```
-
 ### Cumulative Average Model
 
 ```{r}
-#Daily Data Set
-new_all_team_data_2 <- all_team_data %>%
-    filter(team_date == Sys.Date())
+#Current Data Set
 
 #Cumulative Average Model
 cumulative_avg_predictions <- fitted(cumulative_avg_summary)
-cumulative_avg_predicted_values <- predict(cumulative_avg, newdata = new_all_team_data_2, type = "probs")
-cumulative_avg_daily_data <- cbind(new_all_team_data_2, cumulative_avg_predicted_values)
+cumulative_avg_predicted_values <- predict(cumulative_avg, newdata = all_team_data, type = "probs")
+all_team_data <- cbind(all_team_data, cumulative_avg_predicted_values)
 ```
 
 ## Data Cleaning 5: Predictions in Data Frame
 
-### Overall Average Model
-
-```{r}
-#Overall Average
-temporary_df_2 <- overall_avg_daily_data %>%
-    dplyr::select(team_team, team_date, loss) %>%
-    rename("opponent_loss" = "loss", "team_dummy" = "team_team")
-
-overall_avg_daily_data <- overall_avg_daily_data %>%
-    left_join(temporary_df_2, by = c("team_opponent" = "team_dummy", "team_date"))
-
-overall_avg_daily_data <- overall_avg_daily_data %>%
-    mutate(projected_outcome = ifelse(loss < opponent_loss, 1, 0)) %>%
-    mutate(projected_outcome_type = case_when(
-        projected_outcome == 1 ~ ifelse(close_win > blowout_win, "Close Win", "Blowout Win"),
-        TRUE ~ "Loss"
-    ))
-
-overall_avg_daily_data <- overall_avg_daily_data %>%
-    dplyr::select(team_team, team_opponent, team_date, projected_outcome, projected_outcome_type)
-View(overall_avg_daily_data)
-```
-
 ### Cumulative Average Model
 
 ```{r}
-#Cumulative Average
-temporary_df_3 <- cumulative_avg_daily_data %>%
-    dplyr::select(team_team, team_date, loss) %>%
-    rename("opponent_loss" = "loss", "team_dummy" = "team_team")
+all_team_data <- all_team_data %>%
+    mutate(close_win = round(close_win * 100, 1),
+           close_loss = round(close_loss * 100, 1),
+           blowout_win = round(blowout_win * 100, 1),
+           blowout_loss = round(blowout_loss * 100, 1))
 
-cumulative_avg_daily_data <- cumulative_avg_daily_data %>%
-    left_join(temporary_df_3, by = c("team_opponent" = "team_dummy", "team_date"))
-
-cumulative_avg_daily_data <- cumulative_avg_daily_data %>%
-    mutate(projected_outcome = ifelse(loss < opponent_loss, 1, 0)) %>%
-    mutate(projected_outcome_type = case_when(
-        projected_outcome == 1 ~ ifelse(close_win > blowout_win, "Close Win", "Blowout Win"),
-        TRUE ~ "Loss"
-    ))
-
-cumulative_avg_daily_data <- cumulative_avg_daily_data %>%
-    dplyr::select(team_team, team_opponent, team_date, projected_outcome, projected_outcome_type)
-View(cumulative_avg_daily_data)
+#View(all_team_data)
 ```
