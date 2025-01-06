@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Camalytics
 
+## Overview
+
 ## Loading Packages
 
 ```{r}
@@ -20,6 +22,12 @@ library(tidyverse)
 library(foreign)
 library(nnet)
 library(readr)
+library(rsample)
+library(caret)
+library(h2o)
+library(modeldata)
+library(vip)
+library(ROCR)
 ```
 
 ## Loading in All Data
@@ -74,10 +82,6 @@ all_team_data <- all_team_data %>%
         team_plusminus > 10 ~ 3,
         team_plusminus < -10 ~ 4
     )) %>%
-    #Changing Outcome to Factor for Analysis
-    mutate(team_game_outcome = factor(team_game_outcome,
-                                        levels = c(1, 2, 3, 4),
-                                        labels = c("close_win", "close_loss", "blowout_win", "blowout_loss"))) %>%
     #Secondary Outcome: Sub-Type of Outcome
     mutate(team_win = ifelse(team_game_outcome == 1 | team_game_outcome == 3, 1, 0),
            team_loss = ifelse(team_game_outcome == 2 | team_game_outcome == 4, 1, 0))
@@ -185,6 +189,18 @@ all_team_data <- all_team_data %>%
 
 # Model Building
 
+## Factor Before Analysis
+
+```{r}
+all_team_data <- all_team_data %>%
+    mutate(team_game_outcome = factor(team_game_outcome,
+                                        levels = c(1, 2, 3, 4),
+                                        labels = c("close_win", "close_loss",
+                                                   "blowout_win", "blowout_loss"))) %>%
+    mutate(team_wi)
+```
+
+
 ```{r}
 options(scipen = 999)
 #Cumulative Average Model
@@ -217,6 +233,8 @@ cumulative_avg_exp_coefs
 cumulative_avg_predictions <- fitted(cumulative_avg_summary)
 cumulative_avg_predicted_values <- predict(cumulative_avg, newdata = all_team_data, type = "probs")
 all_team_data <- cbind(all_team_data, cumulative_avg_predicted_values)
+
+
 ```
 
 ## Data Cleaning 5: Predictions in Data Frame
@@ -231,4 +249,69 @@ all_team_data <- all_team_data %>%
            blowout_loss = round(blowout_loss * 100, 1))
 
 #View(all_team_data)
+```
+
+# Machine Learning
+
+```{r}
+set.seed(123)
+ml_all_team_data <- na.omit(all_team_data)
+```
+
+## Splitting Data & Creating Models
+
+```{r}
+#Splitting Data
+ml_team_split <- initial_split(ml_all_team_data, prop = .60)
+ml_team_train <- training(ml_team_split)
+ml_team_test <- testing(ml_team_split)
+
+#Models
+ml_team_outcome_fd <- multinom(team_game_outcome ~ team_moneyline,
+                               data = ml_team_train)
+
+ml_team_outcome <- multinom(team_game_outcome ~ team_cummean_offrating
+                           + team_cummean_defrating
+                           + opponent_cummean_offrating
+                           + opponent_cummean_defrating
+                           , data = ml_team_train)
+
+summary(ml_team_outcome_fd)
+summary(ml_team_outcome)
+```
+
+##
+
+```{r}
+cv_ml_team_outcome_fd <- train(team_game_outcome ~ team_moneyline
+                            , data = ml_team_train
+                            , method = "multinom"
+                            , trControl = trainControl(method = "cv", number = 10))
+
+cv_ml_team_outcome <- train(team_game_outcome ~ team_cummean_offrating
+                           + team_cummean_defrating
+                           + opponent_cummean_offrating
+                           + opponent_cummean_defrating
+                           , data = ml_team_train
+                           , method = "multinom"
+                           , trControl = trainControl(method = "cv", number = 10))
+
+
+
+summary(
+    resamples(
+        list(
+            model1 = cv_ml_team_outcome_fd,
+            model2 = cv_ml_team_outcome
+        )
+    )
+)$statistics$Accuracy
+```
+
+```{r}
+pred_class <- predict(cv_ml_team_outcome, ml_team_train)
+confusionMatrix(
+    data = pred_class,
+    reference = relevel(ml_team_train$team_game_outcome, ref = 1)
+)
 ```
