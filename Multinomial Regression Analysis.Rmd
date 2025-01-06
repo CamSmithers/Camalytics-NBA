@@ -111,10 +111,12 @@ all_team_average <- all_team_data %>%
 all_team_average_2 <- all_team_data %>%
     group_by(team_team) %>%
     mutate(team_cummean_offrating = round(cummean(team_offrating), 1),
-           team_cummean_defrating = round(cummean(team_defrating), 1)) %>%
-    fill(team_cummean_offrating, team_cummean_defrating, .direction = "down") %>%
+           team_cummean_defrating = round(cummean(team_defrating), 1),
+           team_cummean_netrating = round(cummean(team_netrating), 1)) %>%
+    fill(team_cummean_offrating, team_cummean_defrating, team_cummean_netrating, .direction = "down") %>%
     ungroup() %>%
-    select(team_team, team_date, team_cummean_offrating, team_cummean_defrating)
+    dplyr::select(team_team, team_date, team_cummean_offrating,
+                  team_cummean_defrating, team_cummean_netrating)
 
 all_opponent_average <- all_team_data %>%
     group_by(team_team) %>%
@@ -136,10 +138,12 @@ all_opponent_average <- all_team_data %>%
 all_opponent_average_2 <- all_team_data %>%
     group_by(team_team) %>%
     mutate(opponent_cummean_offrating = round(cummean(team_offrating), 1),
-           opponent_cummean_defrating = round(cummean(team_defrating), 1)) %>%
-    fill(opponent_cummean_offrating, opponent_cummean_defrating, .direction = "down") %>%
+           opponent_cummean_defrating = round(cummean(team_defrating), 1),
+           opponent_cummean_netrating = round(cummean(team_netrating))) %>%
+    fill(opponent_cummean_offrating, opponent_cummean_defrating, opponent_cummean_netrating, .direction = "down") %>%
     ungroup() %>%
-    select(team_team, team_date, opponent_cummean_offrating, opponent_cummean_defrating)
+    dplyr::select(team_team, team_date, opponent_cummean_offrating,
+                  opponent_cummean_defrating, opponent_cummean_netrating)
 
 all_league_average <- all_team_data %>%
     summarize(
@@ -196,30 +200,27 @@ all_team_data <- all_team_data %>%
     mutate(team_game_outcome = factor(team_game_outcome,
                                         levels = c(1, 2, 3, 4),
                                         labels = c("close_win", "close_loss",
-                                                   "blowout_win", "blowout_loss"))) %>%
-    mutate(team_wi)
+                                                   "blowout_win", "blowout_loss")))
 ```
 
 
 ```{r}
 options(scipen = 999)
 #Cumulative Average Model
-
-#all_team_data$team_game_outcome <- relevel(all_team_data$team_game_outcome, ref = "x")
-
-cumulative_avg <- multinom(team_game_outcome ~ team_cummean_offrating
+offrtg_defrtg_model <- multinom(team_game_outcome ~ team_cummean_offrating
                            + team_cummean_defrating
                            + opponent_cummean_offrating
-                           + opponent_cummean_defrating, data = all_team_data)
-cumulative_avg_summary <- summary(cumulative_avg)
-cumulative_avg_summary
+                           + opponent_cummean_defrating
+                           , data = all_team_data)
+offrtg_defrtg_summary <- summary(offrtg_defrtg_model)
+offrtg_defrtg_summary
 
-cumulative_avg_z_values <- cumulative_avg_summary$coefficients / cumulative_avg_summary$standard.errors
-cumulative_avg_p_values <- (1 - pnorm(abs(cumulative_avg_z_values), 0, 1)) * 2
-cumulative_avg_p_values
+offrtg_defrtg_z_values <- offrtg_defrtg_summary$coefficients / offrtg_defrtg_summary$standard.errors
+offrtg_defrtg_p_values <- (1 - pnorm(abs(offrtg_defrtg_z_values), 0, 1)) * 2
+offrtg_defrtg_p_values
 
-cumulative_avg_exp_coefs <- exp(coef(cumulative_avg_summary))
-cumulative_avg_exp_coefs
+offrtg_defrtg_exp_coefs <- exp(coef(offrtg_defrtg_summary))
+offrtg_defrtg_exp_coefs
 ```
 
 ## Model Predictions
@@ -230,11 +231,9 @@ cumulative_avg_exp_coefs
 #Current Data Set
 
 #Cumulative Average Model
-cumulative_avg_predictions <- fitted(cumulative_avg_summary)
-cumulative_avg_predicted_values <- predict(cumulative_avg, newdata = all_team_data, type = "probs")
-all_team_data <- cbind(all_team_data, cumulative_avg_predicted_values)
-
-
+offrtg_defrtg_predictions <- fitted(offrtg_defrtg_summary)
+offrtg_defrtg_predicted_values <- predict(offrtg_defrtg_model, newdata = all_team_data, type = "probs")
+all_team_data <- cbind(all_team_data, offrtg_defrtg_predicted_values)
 ```
 
 ## Data Cleaning 5: Predictions in Data Frame
@@ -253,14 +252,14 @@ all_team_data <- all_team_data %>%
 
 # Machine Learning
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 set.seed(123)
 ml_all_team_data <- na.omit(all_team_data)
 ```
 
 ## Splitting Data & Creating Models
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 #Splitting Data
 ml_team_split <- initial_split(ml_all_team_data, prop = .60)
 ml_team_train <- training(ml_team_split)
@@ -280,9 +279,9 @@ summary(ml_team_outcome_fd)
 summary(ml_team_outcome)
 ```
 
-##
+## Cross Validation
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 cv_ml_team_outcome_fd <- train(team_game_outcome ~ team_moneyline
                             , data = ml_team_train
                             , method = "multinom"
@@ -308,7 +307,7 @@ summary(
 )$statistics$Accuracy
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 pred_class <- predict(cv_ml_team_outcome, ml_team_train)
 confusionMatrix(
     data = pred_class,

@@ -1,0 +1,24 @@
+outcome_var <- "team_game_outcome"
+
+#Choosing predictors for outcome
+outcome_predictors <- setdiff(names(all_team_data), outcome_var)
+
+outcome_var_models <- lapply(outcome_predictors, function(significant_predictor) {
+    #Model Formula
+    model_x <- multinom(as.formula(paste(outcome_var, "~", significant_predictor)), data = all_team_data)
+    
+    #Summary of Model
+    model_x_summary <- summary(model_x)
+    
+    #Z Values of Model
+    model_x_z_values <- model_x_summary$coefficients / model_x_summary$standard.errors
+    
+    #P Values of Model
+    model_x_p_values <- (1 - pnorm(abs(model_x_z_values), 0, 1)) * 2
+    
+    #Collecting predictors and p-values into a list
+    list(predictor = significant_predictor, p_values = model_x_p_values)
+})
+
+#Running models and summary
+outcome_var_models
