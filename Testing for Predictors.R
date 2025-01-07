@@ -1,9 +1,10 @@
+#Choosing Outcome Variable
 outcome_var <- "team_game_outcome"
 
 #Choosing predictors for outcome
 outcome_predictors <- setdiff(names(all_team_data), outcome_var)
 
-outcome_var_models <- lapply(outcome_predictors, function(significant_predictor) {
+outcome_var_models <- base::lapply(outcome_predictors, function(significant_predictor) {
     #Model Formula
     model_x <- multinom(as.formula(paste(outcome_var, "~", significant_predictor)), data = all_team_data)
     
@@ -20,5 +21,17 @@ outcome_var_models <- lapply(outcome_predictors, function(significant_predictor)
     list(predictor = significant_predictor, p_values = model_x_p_values)
 })
 
-#Running models and summary
-outcome_var_models
+#outcome_var_models
+
+#########################################
+
+testing_var <- "team_game_outcome_3"
+
+testing_predictors <- setdiff(names(all_team_data), testing_var)
+
+testing_var_models <- base::lapply(testing_predictors, function(test_predictor) {
+    glm(as.formula(paste(testing_var, "~", test_predictor))
+        , data = all_team_data, family = "binomial")
+})
+
+lapply(testing_var_models, summary)

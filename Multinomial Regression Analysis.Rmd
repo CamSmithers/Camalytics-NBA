@@ -91,8 +91,10 @@ all_team_data <- all_team_data %>%
         team_plusminus < -10 ~ 4
     )) %>%
     #Secondary Outcome: Sub-Type of Outcome
-    mutate(team_win = ifelse(team_game_outcome == 1 | team_game_outcome == 3, 1, 0),
-           team_loss = ifelse(team_game_outcome == 2 | team_game_outcome == 4, 1, 0))
+    mutate(team_win = ifelse(team_plusminus > 0, 1, 0),
+           team_loss = ifelse(team_plusminus < 0, 1, 0)) %>%
+    mutate(team_game_outcome_2 = ifelse(team_plusminus > 0, 1, 0)) %>%
+    mutate(team_game_outcome_3 = ifelse(team_plusminus > 10| team_plusminus < -10, 1, 0))
     
 ```
 
@@ -210,9 +212,15 @@ all_team_data <- all_team_data %>%
 all_team_data <- data.frame(all_team_data, all_league_average)
 ```
 
-# Model Building
+# Multinomial Regression
 
-## Factor Before Analysis
+-   Model
+
+    -   Team Game Outcome (TGO) 1: 4 Level Multinomial Regression
+
+## TGO 1: Win & Magnitude
+
+### TGO 1: Factor Before Analysis
 
 ```{r}
 all_team_data <- all_team_data %>%
@@ -222,8 +230,9 @@ all_team_data <- all_team_data %>%
                                                    "blowout_win", "blowout_loss")))
 ```
 
+### TGO 1: Model Building
 
-```{r}
+```{r include=FALSE}
 options(scipen = 999)
 #Cumulative Average Model
 
@@ -234,11 +243,11 @@ ppg_oppg_model <- multinom(team_game_outcome ~ team_cummean_pts
                           , data = all_team_data)
 
 ppg_oppg_summary <- summary(ppg_oppg_model)
-ppg_oppg_summary
+#ppg_oppg_summary
 
 ppg_oppg_z_values <- ppg_oppg_summary$coefficients / ppg_oppg_summary$standard.errors
 ppg_oppg_p_values <- (1 -pnorm(abs(ppg_oppg_z_values), 0, 1)) * 2
-ppg_oppg_p_values
+#ppg_oppg_p_values
 
 #Offensive & Defensive Rating Model
 offrtg_defrtg_model <- multinom(team_game_outcome ~ team_cummean_offrating
@@ -247,19 +256,17 @@ offrtg_defrtg_model <- multinom(team_game_outcome ~ team_cummean_offrating
                            + opponent_cummean_defrating
                            , data = all_team_data)
 offrtg_defrtg_summary <- summary(offrtg_defrtg_model)
-offrtg_defrtg_summary
+#offrtg_defrtg_summary
 
 offrtg_defrtg_z_values <- offrtg_defrtg_summary$coefficients / offrtg_defrtg_summary$standard.errors
 offrtg_defrtg_p_values <- (1 - pnorm(abs(offrtg_defrtg_z_values), 0, 1)) * 2
-offrtg_defrtg_p_values
+#offrtg_defrtg_p_values
 
 offrtg_defrtg_exp_coefs <- exp(coef(offrtg_defrtg_summary))
-offrtg_defrtg_exp_coefs
+#offrtg_defrtg_exp_coefs
 ```
 
-## Model Predictions
-
-### Cumulative Average Model
+### TGO 1: Model Predictions
 
 ```{r}
 #Points Per Game & Points Allowed Per Game
@@ -274,9 +281,7 @@ offrtg_defrtg_predicted_values <- predict(offrtg_defrtg_model, newdata = all_tea
 offrtg_defrtg_data <- cbind(all_team_data, offrtg_defrtg_predicted_values)
 ```
 
-## Data Cleaning 5: Predictions in Data Frame
-
-### Cumulative Average Model
+### TGO 1: Data Cleaning 1: Predictions in Data Frame
 
 ```{r}
 ppg_oppg_data <- ppg_oppg_data %>%
@@ -291,6 +296,23 @@ offrtg_defrtg_data <- offrtg_defrtg_data %>%
            blowout_win = round(blowout_win * 100, 1),
            blowout_loss = round(blowout_loss * 100, 1))
 ```
+
+# Logistic Regression
+
+## TGO 2: Win/Loss Logistic Regression
+
+```{r}
+model_one <- glm(team_game_outcome_2 ~ team_home
+                 + team_cummean_offrating
+                 + team_cummean_defrating
+                 + opponent_cummean_offrating
+                 + opponent_cummean_defrating
+                 , data = all_team_data, family = "binomial")
+
+summary(model_one)
+```
+
+# Team Game Outcome 3: Outcome Magnitude
 
 # Machine Learning
 
