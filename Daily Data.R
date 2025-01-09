@@ -15,6 +15,7 @@ View(daily.offrtg_defrtg_data)
 #Outcomes 2 to 4
 daily.predictions <- all_team_data %>%
     dplyr::select(team_date, team_team, team_opponent,
-                  team_win_chance, team_blowout_chance, team_upset_chance) %>%
+                  team_win_chance, team_cumrate_win,
+                  team_upset_chance, team_cumrate_upset) %>%
     filter(team_date == Sys.Date())
 View(daily.predictions)

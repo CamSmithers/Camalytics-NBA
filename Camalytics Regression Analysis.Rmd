@@ -89,11 +89,7 @@ all_team_data <- all_team_data %>%
     #Outcome 2 (Primary): Game Outcome 
     mutate(team_game_outcome_2 = ifelse(team_plusminus > 0, 1, 0)) %>%
     #Outcome 3 (Secondary): Game Outcome Magnitude (w/ Primary Outcome Assumption)
-    mutate(team_game_outcome_3 = case_when(
-        team_plusminus > 10 ~ 1,
-        team_plusminus > 0 & team_plusminus <= 10 ~ 0,
-        TRUE ~ NA
-    )) %>%
+    mutate(team_game_outcome_3 = ifelse(team_plusminus > 10, 1, 0)) %>%
     #Outcome 4 (Secondary): Game Outcome (w/ Previous Condition Met)
     mutate(team_game_outcome_4 = case_when(
         team_favored == 1 & team_plusminus < 0 ~ 1,
@@ -270,7 +266,7 @@ all_team_data <- all_team_data %>%
 
 ### TGO 1: Model Building
 
-```{r include=FALSE}
+```{r}
 options(scipen = 999)
 #Cumulative Average Model
 
@@ -294,11 +290,11 @@ offrtg_defrtg_model <- multinom(team_game_outcome ~ team_cummean_offrating
                            + opponent_cummean_defrating
                            , data = all_team_data)
 offrtg_defrtg_summary <- summary(offrtg_defrtg_model)
-#offrtg_defrtg_summary
+offrtg_defrtg_summary
 
 offrtg_defrtg_z_values <- offrtg_defrtg_summary$coefficients / offrtg_defrtg_summary$standard.errors
 offrtg_defrtg_p_values <- (1 - pnorm(abs(offrtg_defrtg_z_values), 0, 1)) * 2
-#offrtg_defrtg_p_values
+offrtg_defrtg_p_values
 
 offrtg_defrtg_exp_coefs <- exp(coef(offrtg_defrtg_summary))
 #offrtg_defrtg_exp_coefs
@@ -374,9 +370,7 @@ all_team_data <- all_team_data %>%
 ## Outcome 3 (Secondary): Game Outcome Magnitude (w/ Primary Outcome Assumption)
 
 ```{r}
-blowout_model <- glm(team_game_outcome_3 ~ team_cummean_netrating
-                     + opponent_cummean_netrating
-                     + team_cumrate_blowout_win
+blowout_model <- glm(team_game_outcome_3 ~ 1
                  , data = all_team_data, family = "binomial")
 
 blowout_model_summary <- summary(blowout_model)
@@ -385,7 +379,7 @@ blowout_model_summary
 
 ### TGO 3: Model Predictors Data Frame
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 blowout_model_df <- as.data.frame(blowout_model_summary$coefficients) %>%
     rownames_to_column(var = "Variable") %>%
     as_tibble() %>%
@@ -394,10 +388,11 @@ blowout_model_df <- as.data.frame(blowout_model_summary$coefficients) %>%
 all_team_data <- all_team_data %>% 
    mutate(team_blowout_chance = 
                round(100 * (1 / (1 + e^-(
-                   (blowout_model_df$Estimate[1])
-                   + (blowout_model_df$Estimate[2] * team_cummean_netrating)
-                   + (blowout_model_df$Estimate[3] * opponent_cummean_netrating)
-                   + (blowout_model_df$Estimate[4] * team_cumrate_blowout_win)))), 1))
+                   (blowout_model_df$Estimate[1] * team_home)
+                   + (blowout_model_df$Estimate[2] * team_cummean_offrating)
+                   + (blowout_model_df$Estimate[3] * team_cummean_defrating)
+                   + (blowout_model_df$Estimate[4] * opponent_cummean_offrating)
+                   + (blowout_model_df$Estimate[5] * opponent_cummean_defrating)))), 1))
 ```
 
 ## Outcome 4 (Secondary): Game Outcome (w/ Previous Condition Met)
