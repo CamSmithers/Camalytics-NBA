@@ -255,6 +255,7 @@ all_opponent_average <- all_team_data %>%
         )
 
 all_league_average <- all_team_data %>%
+    group_by(team_date) %>%
     summarize(
         #Major Statistical Categories
         league_avg_pts = round(mean(team_pts, na.rm = TRUE), 1),
@@ -265,16 +266,27 @@ all_league_average <- all_team_data %>%
         #Advanced Metrics
         league_avg_offrating = round(mean(team_offrating, na.rm = TRUE), 1),
         league_avg_defrating = round(mean(team_defrating, na.rm = TRUE), 1),
-        league_avg_netrating = round(mean(team_netrating, na.rm = TRUE), 1),
-        league_avg_rebpct = round(mean(team_rebpct, na.rm = TRUE), 1),
-        league_avg_astpct = round(mean(team_astpct, na.rm = TRUE), 1)
-    )
+        league_avg_netrating = round(mean(team_netrating, na.rm = TRUE), 1)) %>%
+    arrange(team_date) %>%
+    mutate(
+        league_cummean_pts = round(mean(league_avg_pts), 1),
+        league_cummean_pts_allowed = round(mean(league_avg_pts_allowed), 1),
+        league_cummean_reb = round(mean(league_avg_reb), 1),
+        league_cummean_ast = round(mean(league_avg_ast), 1),
+        league_cummean_tov = round(mean(league_avg_tov), 1),
+        #Advanced Metrics
+        league_cummean_offrating = round(mean(league_avg_offrating), 1),
+        league_cummean_defrating = round(mean(league_avg_defrating), 1),
+        league_cummean_netrating = round(mean(league_avg_netrating), 1)) %>%
+    fill(league_cummean_pts, league_cummean_pts_allowed, league_cummean_reb, 
+         league_cummean_ast, league_cummean_tov, 
+         league_cummean_offrating, league_cummean_defrating, league_cummean_netrating) %>%
+    dplyr::select(-starts_with("league_avg_"))
 
 all_team_data <- all_team_data %>%
     left_join(all_team_average, by = c("team_team" = "team_team", "team_date" = "team_date")) %>%
-    left_join(all_opponent_average, by = c("team_opponent" = "team_team", "team_date" = "team_date"))
-
-all_team_data <- data.frame(all_team_data, all_league_average)
+    left_join(all_opponent_average, by = c("team_opponent" = "team_team", "team_date" = "team_date")) %>%
+    left_join(all_league_average, by = "team_date")
 ```
 
 ## Data Cleaning 4:
@@ -463,7 +475,11 @@ all_team_data <- cbind(all_team_data, upset_predicted_values)
 
 #Cleaning Up Probability
 all_team_data <- all_team_data %>%
-    mutate(upset_predicted_values = round(100 * upset_predicted_values, 1))
+    mutate(upset_predicted_values = round(100 * upset_predicted_values, 1)) %>%
+    mutate(upset_predicted_values = case_when(
+        team_favored == 1 ~ upset_predicted_values,
+        team_favored == 0 ~ NA
+    ))
 ```
 
 ------------------------------------------------------------------------
