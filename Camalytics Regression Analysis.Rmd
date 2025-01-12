@@ -22,8 +22,6 @@ library(tidyverse)
 library(foreign)
 library(nnet)
 library(readr)
-
-e <- exp(1)
 ```
 
 ## Loading in All Data
@@ -72,38 +70,39 @@ all_team_data <- all_team_data %>% #Re-ordering for better visualization
 
 ## Data Cleaning 2: Creating Variables for Outcomes
 
-1.  Primary Outcome: Game Outcome Type
-2.  Changing Variable to Factor
-3.  Creating Binary Variables for Primary Outcomes
-4.  Secondary Outcome: Game Outcome without Magnitude
-
 ```{r}
 all_team_data <- all_team_data %>%
-    #Outcome 1 (Primary): Game Outcome (w/ Magnitude)
+    #Variables for Later Mutation
+    mutate(team_win = ifelse(team_plusminus > 0, 1, 0),
+           team_loss = ifelse(team_plusminus < 0, 1, 0),
+           team_pointdiff = abs(team_plusminus),
+           game_points = team_pts + team_opponent_pts) %>%
+    
+    #Outcome 1: Margin of Victory
     mutate(team_game_outcome = case_when(
         team_plusminus > 0 & team_plusminus <= 10 ~ 1,
         team_plusminus < 0 & team_plusminus >= -10 ~ 2,
         team_plusminus > 10 ~ 3,
-        team_plusminus < -10 ~ 4
-    )) %>%
-    #Outcome 2 (Primary): Game Outcome 
+        team_plusminus < -10 ~ 4)) %>%
+    
+    #Outcome 2: Game Outcome 
     mutate(team_game_outcome_2 = ifelse(team_plusminus > 0, 1, 0)) %>%
-    #Outcome 3 (Secondary): Game Outcome Magnitude (w/ Primary Outcome Assumption)
+    
+    #Outcome 3: Predicting Upset
     mutate(team_game_outcome_3 = case_when(
-        team_plusminus > 10 ~ 1, 
-        team_plusminus > 0 & team_plusminus <= 10 ~ 0,
-        TRUE ~ NA
-    )) %>%
-    #Outcome 4 (Secondary): Game Outcome (w/ Previous Condition Met)
-    mutate(team_game_outcome_4 = case_when(
         team_favored == 1 & team_plusminus < 0 ~ 1,
         team_favored == 1 & team_plusminus > 0 ~ 0,
-        TRUE ~ NA
-    )) %>%
-    #Variables for Later Mutation
-    mutate(team_win = ifelse(team_plusminus > 0, 1, 0),
-           team_loss = ifelse(team_plusminus < 0, 1, 0))
-    
+        TRUE ~ NA)) %>%
+    #Outcome 4: Covering Point Spread
+    mutate(team_game_outcome_4 = case_when(
+        team_pointdiff > team_spread & team_favored == 1 ~ 1,
+        team_pointdiff < team_spread & team_favored == 1 ~ 0,
+        team_pointdiff == team_spread & team_favored == 1 ~ 0,
+        team_pointdiff < team_spread & team_favored == 0 ~ 1, 
+        team_pointdiff > team_spread & team_favored == 0 ~ 0,
+        team_pointdiff == team_spread & team_favored == 0 ~ 1)) %>%
+    #Outcome 5: Covering Game Total
+    mutate(team_game_outcome_5 = ifelse(game_points > team_gametotal, 1, 0))
 ```
 
 ## Data Cleaning 3: Team Averages
@@ -269,18 +268,18 @@ all_league_average <- all_team_data %>%
         league_avg_netrating = round(mean(team_netrating, na.rm = TRUE), 1)) %>%
     arrange(team_date) %>%
     mutate(
-        league_cummean_pts = round(mean(league_avg_pts), 1),
-        league_cummean_pts_allowed = round(mean(league_avg_pts_allowed), 1),
-        league_cummean_reb = round(mean(league_avg_reb), 1),
-        league_cummean_ast = round(mean(league_avg_ast), 1),
-        league_cummean_tov = round(mean(league_avg_tov), 1),
+        league_cummean_pts = round(cummean(league_avg_pts), 1),
+        league_cummean_pts_allowed = round(cummean(league_avg_pts_allowed), 1),
+        league_cummean_reb = round(cummean(league_avg_reb), 1),
+        league_cummean_ast = round(cummean(league_avg_ast), 1),
+        league_cummean_tov = round(cummean(league_avg_tov), 1),
         #Advanced Metrics
-        league_cummean_offrating = round(mean(league_avg_offrating), 1),
-        league_cummean_defrating = round(mean(league_avg_defrating), 1),
-        league_cummean_netrating = round(mean(league_avg_netrating), 1)) %>%
+        league_cummean_offrating = round(cummean(league_avg_offrating), 1),
+        league_cummean_defrating = round(cummean(league_avg_defrating), 1),
+        league_cummean_netrating = round(cummean(league_avg_netrating), 1)) %>%
     fill(league_cummean_pts, league_cummean_pts_allowed, league_cummean_reb, 
          league_cummean_ast, league_cummean_tov, 
-         league_cummean_offrating, league_cummean_defrating, league_cummean_netrating) %>%
+         league_cummean_offrating, league_cummean_defrating, league_cummean_netrating, .direction = "down") %>%
     dplyr::select(-starts_with("league_avg_"))
 
 all_team_data <- all_team_data %>%
@@ -303,7 +302,7 @@ all_team_data <- all_team_data %>%
         team_cumsum_blowout_win = cumsum(ifelse(is.na(team_cummean_netrating_win), 0, team_cummean_netrating_win)),
         
         team_cumsum_favored = cumsum(ifelse(is.na(team_favored), 0, team_favored)),
-        team_cumsum_upset = cumsum(ifelse(is.na(team_game_outcome_4), 0, team_game_outcome_4)),
+        team_cumsum_upset = cumsum(ifelse(is.na(team_game_outcome_3), 0, team_game_outcome_3)),
         
         #Cumulative Rates
         team_cumrate_win = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_win / team_cumsum_game, 3)),
@@ -316,99 +315,9 @@ all_team_data <- all_team_data %>%
 
 ------------------------------------------------------------------------
 
-# Multinomial Regression
-
--   Model
-
-    -   Outcome 1 (Primary): Game Outcome (w/ Magnitude)
-    -   Outcome 2 (Primary): Game Outcome
-    -   Outcome 3 (Secondary): Game Outcome Magnitude (w/ Primary Outcome Assumption)
-    -   Outcome 4 (Secondary): Game Outcome (w/ Previous Condition Met)
-
-## Outcome 1 (Primary): Game Outcome (w/ Magnitude)
-
-### TGO 1: Factor Before Analysis
-
-```{r}
-all_team_data <- all_team_data %>%
-    mutate(team_game_outcome = factor(team_game_outcome,
-                                        levels = c(1, 2, 3, 4),
-                                        labels = c("close_win", "close_loss",
-                                                   "blowout_win", "blowout_loss")))
-```
-
-### TGO 1: Model Building
-
-```{r}
-options(scipen = 999)
-#Cumulative Average Model
-
-ppg_oppg_model <- multinom(team_game_outcome ~ team_cummean_pts
-                          + team_cummean_pts_allowed
-                          + opponent_cummean_pts
-                          + opponent_cummean_pts_allowed
-                          , data = all_team_data)
-
-ppg_oppg_summary <- summary(ppg_oppg_model)
-#ppg_oppg_summary
-
-ppg_oppg_z_values <- ppg_oppg_summary$coefficients / ppg_oppg_summary$standard.errors
-ppg_oppg_p_values <- (1 -pnorm(abs(ppg_oppg_z_values), 0, 1)) * 2
-#ppg_oppg_p_values
-
-#Offensive & Defensive Rating Model
-offrtg_defrtg_model <- multinom(team_game_outcome ~ team_cummean_offrating
-                           + team_cummean_defrating
-                           + opponent_cummean_offrating
-                           + opponent_cummean_defrating
-                           , data = all_team_data)
-offrtg_defrtg_summary <- summary(offrtg_defrtg_model)
-offrtg_defrtg_summary
-
-offrtg_defrtg_z_values <- offrtg_defrtg_summary$coefficients / offrtg_defrtg_summary$standard.errors
-offrtg_defrtg_p_values <- (1 - pnorm(abs(offrtg_defrtg_z_values), 0, 1)) * 2
-offrtg_defrtg_p_values
-
-offrtg_defrtg_exp_coefs <- exp(coef(offrtg_defrtg_summary))
-#offrtg_defrtg_exp_coefs
-```
-
-### TGO 1: Model Predictions
-
-```{r}
-#Points Per Game & Points Allowed Per Game
-ppg_oppg_predictions <- fitted(ppg_oppg_summary)
-ppg_oppg_predicted_values <- predict(ppg_oppg_model, newdata = all_team_data, type = "probs")
-ppg_oppg_data <- cbind(all_team_data, ppg_oppg_predicted_values)
-
-
-#Offensive & Defensive Rating Model
-offrtg_defrtg_predictions <- fitted(offrtg_defrtg_summary)
-offrtg_defrtg_predicted_values <- predict(offrtg_defrtg_model, newdata = all_team_data, type = "probs")
-offrtg_defrtg_data <- cbind(all_team_data, offrtg_defrtg_predicted_values)
-```
-
-### TGO 1: Data Cleaning 1: Predictions in Data Frame
-
-```{r}
-ppg_oppg_data <- ppg_oppg_data %>%
-    mutate(close_win = round(close_win * 100, 1),
-           close_loss = round(close_loss * 100, 1),
-           blowout_win = round(blowout_win * 100, 1),
-           blowout_loss = round(blowout_loss * 100, 1))
-
-offrtg_defrtg_data <- offrtg_defrtg_data %>%
-    mutate(close_win = round(close_win * 100, 1),
-           close_loss = round(close_loss * 100, 1),
-           blowout_win = round(blowout_win * 100, 1),
-           blowout_loss = round(blowout_loss * 100, 1))
-```
-
-------------------------------------------------------------------------
-
 # Logistic Regression
 
-## Outcome 2 (Primary): Game Outcome
+## Outcome 2: Game Outcome
 
 ```{r}
 winloss_model <- glm(team_game_outcome_2 ~ team_home
@@ -435,29 +344,10 @@ all_team_data <- all_team_data %>%
     mutate(winloss_predicted_values = round(100 * winloss_predicted_values, 1))
 ```
 
-## Outcome 3 (Secondary): Game Outcome Magnitude (w/ Primary Outcome Assumption)
-
-```{r eval=FALSE, include=FALSE}
-blowout_model <- glm(team_game_outcome_3 ~ team_cummean_pts_win
-                     + team_cummean_pts_allowed_win
-                 , data = all_team_data, family = "binomial")
-
-blowout_model_summary <- summary(blowout_model)
-blowout_model_summary
-```
-
-### TGO 3: Model Predictors Data Frame
-
-```{r eval=FALSE, include=FALSE}
-blowout_predictions <- fitted(blowout_model)
-blowout_predicted_values <- predict(blowout_model, newdata = all_team_data, type = "response")
-all_team_data <- cbind(all_team_data, blowout_predicted_values)
-```
-
-## Outcome 4 (Secondary): Game Outcome (w/ Previous Condition Met)
+## Outcome 3: Game Outcome (w/ Previous Condition Met)
 
 ```{r}
-upset_model <- glm(team_game_outcome_4 ~ team_cumrate_upset
+upset_model <- glm(team_game_outcome_3 ~ team_cumrate_upset
                    + team_spread
                    , data = all_team_data, family = "binomial")
 
@@ -465,7 +355,7 @@ upset_model_summary <- summary(upset_model)
 upset_model_summary
 ```
 
-### TGO 4: Model Predictors Data Frame
+### TGO 3: Model Predictors Data Frame
 
 ```{r}
 #Model Estimate to Main Data Frame
@@ -478,22 +368,52 @@ all_team_data <- all_team_data %>%
     mutate(upset_predicted_values = round(100 * upset_predicted_values, 1)) %>%
     mutate(upset_predicted_values = case_when(
         team_favored == 1 ~ upset_predicted_values,
-        team_favored == 0 ~ NA
-    ))
+        team_favored == 0 ~ NA))
 ```
 
 ------------------------------------------------------------------------
 
-# Machine Learning
+# Machine Learning: Model Testing
 
-```{r eval=FALSE, include=FALSE}
-set.seed(123)
-ml_all_team_data <- na.omit(all_team_data)
+## *Current Model: Margin of Victory*
+
+## Necessary Packages
+
+```{r}
+library(rsample)
+library(caret)
+library(h2o)
+library(modeldata)
+library(vip)
+library(ROCR)
+```
+
+## Needed Variables
+
+```{r}
+set.seed(1234)
+ml_all_team_data <- all_team_data %>%
+    dplyr::select(team_date, team_team, team_game_outcome, team_home, 
+           team_moneyline, team_cummean_pts_win, team_cummean_pts_allowed_win, 
+           team_cummean_pts_loss, team_cummean_pts_allowed_loss, 
+           opponent_cummean_pts_win, opponent_cummean_pts_allowed_win, 
+           opponent_cummean_pts_loss, opponent_cummean_pts_allowed_loss)
+ml_all_team_data <- na.omit(ml_all_team_data)
+```
+
+## Factoring Before Analysis
+
+```{r}
+ml_all_team_data <- ml_all_team_data %>%
+    mutate(team_game_outcome = factor(team_game_outcome,
+                                        levels = c(1, 2, 3, 4),
+                                        labels = c("close_win", "close_loss",
+                                                   "blowout_win", "blowout_loss")))
 ```
 
 ## Splitting Data & Creating Models
 
-```{r eval=FALSE, include=FALSE}
+```{r}
 #Splitting Data
 ml_team_split <- initial_split(ml_all_team_data, prop = .60)
 ml_team_train <- training(ml_team_split)
@@ -503,10 +423,15 @@ ml_team_test <- testing(ml_team_split)
 ml_team_outcome_fd <- multinom(team_game_outcome ~ team_moneyline,
                                data = ml_team_train)
 
-ml_team_outcome <- multinom(team_game_outcome ~ team_cummean_offrating
-                           + team_cummean_defrating
-                           + opponent_cummean_offrating
-                           + opponent_cummean_defrating
+ml_team_outcome <- multinom(team_game_outcome ~ team_home 
+                            + team_cummean_pts_win
+                            + team_cummean_pts_allowed_win
+                            + opponent_cummean_pts_loss
+                            + opponent_cummean_pts_allowed_loss
+                            + team_cummean_pts_loss
+                            + team_cummean_pts_allowed_loss
+                            + opponent_cummean_pts_win
+                            + opponent_cummean_pts_allowed_win
                            , data = ml_team_train)
 
 summary(ml_team_outcome_fd)
@@ -515,19 +440,20 @@ summary(ml_team_outcome)
 
 ## Cross Validation
 
-```{r eval=FALSE, include=FALSE}
+```{r}
 cv_ml_team_outcome_fd <- train(team_game_outcome ~ team_moneyline
                             , data = ml_team_train
                             , method = "multinom"
-                            , trControl = trainControl(method = "cv", number = 10))
+                            , trControl = trainControl(method = "cv", number = 5))
 
-cv_ml_team_outcome <- train(team_game_outcome ~ team_cummean_offrating
-                           + team_cummean_defrating
-                           + opponent_cummean_offrating
-                           + opponent_cummean_defrating
-                           , data = ml_team_train
+cv_ml_team_outcome <- train(team_game_outcome ~ team_home 
+                            + team_cummean_pts_win
+                            + team_cummean_pts_allowed_win
+                            + opponent_cummean_pts_loss
+                            + opponent_cummean_pts_allowed_loss
+                            , data = ml_team_train
                            , method = "multinom"
-                           , trControl = trainControl(method = "cv", number = 10))
+                           , trControl = trainControl(method = "cv", number = 5))
 
 
 
@@ -541,7 +467,7 @@ summary(
 )$statistics$Accuracy
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r}
 pred_class <- predict(cv_ml_team_outcome, ml_team_train)
 confusionMatrix(
     data = pred_class,
