@@ -85,8 +85,8 @@ View(daily.predictions)
 
 current_date <- format(Sys.Date(), "%m_%d_%y")
 
-#write_csv(daily.predictions, 
-#          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Game Outcome 2/Daily/go2_", current_date, ".csv"))
+write_csv(daily.predictions, 
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Game Outcome 2/Daily/go2_", current_date, ".csv"))
 
 #Outcome 2: Historical Predictions
 historical.predictions <- all_team_data %>%
