@@ -22,6 +22,7 @@ library(tidyverse)
 library(foreign)
 library(nnet)
 library(readr)
+library(patchwork)
 ```
 
 ## Loading in All Data
@@ -128,30 +129,8 @@ all_team_average <- all_team_data %>%
         #Other Statistics
         team_cummean_reb = round(cummean(team_reb), 1),
         team_cummean_tov = round(cummean(team_tov), 1),
-        team_cummean_netrating = round(cummean(team_netrating), 1),
-        
-        #Situational Statistics
-        #Win
-        team_cummean_pts_win = case_when(
-            team_plusminus > 0 ~ round(cummean(team_pts), 1),
-            team_plusminus < 0 ~ NA),
-        team_cummean_pts_allowed_win = case_when(
-            team_plusminus > 0 ~ round(cummean(team_opponent_pts), 1),
-            team_plusminus < 0 ~ NA),
-        team_cummean_netrating_win = case_when(
-            team_plusminus > 0 ~ round(cummean(team_netrating), 1),
-            team_plusminus < 0 ~ NA),
-        #Loss
-        team_cummean_pts_loss = case_when(
-            team_plusminus < 0 ~ round(cummean(team_pts), 1),
-            team_plusminus > 0 ~ NA),
-        team_cummean_pts_allowed_loss = case_when(
-            team_plusminus < 0 ~ round(cummean(team_opponent_pts), 1),
-            team_plusminus > 0 ~ NA),
-        team_cummean_netrating_loss = case_when(
-            team_plusminus < 0 ~ round(cummean(team_netrating), 1),
-            team_plusminus > 0 ~ NA)
-        ) %>%
+        team_cummean_pts_off_tov = round(cummean(team_pts_off_tov), 1),
+        team_cummean_netrating = round(cummean(team_netrating), 1)) %>%
     fill(
         #Offensive Statistics
         team_cummean_pts, team_cummean_offrating, team_cummean_fgpct,
@@ -160,12 +139,8 @@ all_team_average <- all_team_data %>%
         team_cummean_pts_allowed, team_cummean_defrating, team_cummean_fgpct_allowed,
         team_cummean_efgpct_allowed, team_cummean_tspct_allowed,
         #Other Statistics
-        team_cummean_reb, team_cummean_tov, team_cummean_netrating,
-        #Situational Statistics
-        team_cummean_pts_win, team_cummean_pts_allowed_win, team_cummean_netrating_win, 
-        team_cummean_pts_loss, team_cummean_pts_allowed_loss, team_cummean_netrating_loss,
-        .direction = "down"
-        ) %>%
+        team_cummean_reb, team_cummean_tov, team_cummean_netrating, 
+        team_cummean_pts_off_tov, .direction = "down") %>%
     dplyr::select(
         team_team, team_date,
         #Offensive Statistics
@@ -175,11 +150,8 @@ all_team_average <- all_team_data %>%
         team_cummean_pts_allowed, team_cummean_defrating, team_cummean_fgpct_allowed,
         team_cummean_efgpct_allowed, team_cummean_tspct_allowed,
         #Other Statistics
-        team_cummean_reb, team_cummean_tov, team_cummean_netrating,
-        #Situational Statistics
-        team_cummean_pts_win, team_cummean_pts_allowed_win, team_cummean_netrating_win, 
-        team_cummean_pts_loss, team_cummean_pts_allowed_loss, team_cummean_netrating_loss
-        )
+        team_cummean_reb, team_cummean_tov, team_cummean_netrating, 
+        team_cummean_pts_off_tov)
 
 all_opponent_average <- all_team_data %>%
     group_by(team_team) %>%
@@ -201,30 +173,8 @@ all_opponent_average <- all_team_data %>%
         #Other Statistics
         opponent_cummean_reb = round(cummean(team_reb), 1),
         opponent_cummean_tov = round(cummean(team_tov), 1),
-        opponent_cummean_netrating = round(cummean(team_netrating), 1),
-        
-        #Situational Statistics
-        #Win
-        opponent_cummean_pts_win = case_when(
-            team_plusminus > 0 ~ round(cummean(team_pts), 1),
-            team_plusminus < 0 ~ NA),
-        opponent_cummean_pts_allowed_win = case_when(
-            team_plusminus > 0 ~ round(cummean(team_opponent_pts), 1),
-            team_plusminus < 0 ~ NA),
-        opponent_cummean_netrating_win = case_when(
-            team_plusminus > 0 ~ round(cummean(team_netrating), 1),
-            team_plusminus < 0 ~ NA),
-        #Loss
-        opponent_cummean_pts_loss = case_when(
-            team_plusminus < 0 ~ round(cummean(team_pts), 1),
-            team_plusminus > 0 ~ NA),
-        opponent_cummean_pts_allowed_loss = case_when(
-            team_plusminus < 0 ~ round(cummean(team_opponent_pts), 1),
-            team_plusminus > 0 ~ NA),
-        opponent_cummean_netrating_loss = case_when(
-            team_plusminus < 0 ~ round(cummean(team_netrating), 1),
-            team_plusminus > 0 ~ NA)
-        ) %>%
+        opponent_cummean_pts_off_tov = round(cummean(team_pts_off_tov), 1),
+        opponent_cummean_netrating = round(cummean(team_netrating), 1)) %>%
     fill(
         #Offensive Statistics
         opponent_cummean_pts, opponent_cummean_offrating, opponent_cummean_fgpct,
@@ -233,11 +183,8 @@ all_opponent_average <- all_team_data %>%
         opponent_cummean_pts_allowed, opponent_cummean_defrating, opponent_cummean_fgpct_allowed,
         opponent_cummean_efgpct_allowed, opponent_cummean_tspct_allowed,
         #Other Statistics
-        opponent_cummean_reb, opponent_cummean_tov, opponent_cummean_netrating,
-        #Situational Statistics
-        opponent_cummean_pts_win, opponent_cummean_pts_allowed_win, opponent_cummean_netrating_win, 
-        opponent_cummean_pts_loss, opponent_cummean_pts_allowed_loss, opponent_cummean_netrating_loss, .direction = "down"
-        ) %>%
+        opponent_cummean_reb, opponent_cummean_tov, opponent_cummean_netrating, 
+        opponent_cummean_pts_off_tov, .direction = "down") %>%
     dplyr::select(
         team_team, team_date,
         #Offensive Statistics
@@ -247,11 +194,8 @@ all_opponent_average <- all_team_data %>%
         opponent_cummean_pts_allowed, opponent_cummean_defrating, opponent_cummean_fgpct_allowed,
         opponent_cummean_efgpct_allowed, opponent_cummean_tspct_allowed,
         #Other Statistics
-        opponent_cummean_reb, opponent_cummean_tov, opponent_cummean_netrating,
-        #Siutational Statistics
-        opponent_cummean_pts_win, opponent_cummean_pts_allowed_win, opponent_cummean_netrating_win, 
-        opponent_cummean_pts_loss, opponent_cummean_pts_allowed_loss, opponent_cummean_netrating_loss
-        )
+        opponent_cummean_reb, opponent_cummean_tov, opponent_cummean_netrating, 
+        opponent_cummean_pts_off_tov)
 
 all_league_average <- all_team_data %>%
     group_by(team_date) %>%
@@ -299,14 +243,11 @@ all_team_data <- all_team_data %>%
         team_cumsum_loss = cumsum(ifelse(is.na(team_loss), 0, team_loss)),
         team_cumsum_game = team_cumsum_win + team_cumsum_loss,
         
-        team_cumsum_blowout_win = cumsum(ifelse(is.na(team_cummean_netrating_win), 0, team_cummean_netrating_win)),
-        
         team_cumsum_favored = cumsum(ifelse(is.na(team_favored), 0, team_favored)),
         team_cumsum_upset = cumsum(ifelse(is.na(team_game_outcome_3), 0, team_game_outcome_3)),
         
         #Cumulative Rates
         team_cumrate_win = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_win / team_cumsum_game, 3)),
-        team_cumrate_blowout_win = ifelse(team_cumsum_game == 0, NA, round(team_cummean_netrating_win / team_cumsum_win, 3)),
         team_cumrate_favored = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_favored / team_cumsum_game, 3)),
         team_cumrate_upset = ifelse(team_cumsum_favored == 0, NA, round(team_cumsum_upset / team_cumsum_favored, 3))
     ) %>%
@@ -370,6 +311,74 @@ all_team_data <- all_team_data %>%
         team_favored == 1 ~ upset_predicted_values,
         team_favored == 0 ~ NA))
 ```
+
+------------------------------------------------------------------------
+
+# Model Visualizations
+
+## Mutations for Visualizations
+
+```{r}
+mv_all_team_data <- all_team_data %>%
+    mutate(my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
+           my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
+           diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
+           my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
+    mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
+    filter(!is.na(team_fgm))
+```
+
+## Model 2: Game Outcome
+
+```{r}
+# Distribution of Percentages
+winloss_plot_1 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, fill = as.factor(team_game_outcome_2))) + 
+    geom_histogram(color = "black", bins = 25) + 
+    scale_x_continuous(breaks = seq(0, 100, by = 10))
+winloss_plot_1
+
+# Win vs Loss
+winloss_plot_2 <- ggplot(mv_all_team_data, aes(x = as.factor(team_game_outcome_2), fill = as.factor(my_predicted_win))) + 
+    geom_bar(position = "dodge", color = "black") +
+    geom_text(
+        stat = "count",
+        aes(label = after_stat(count)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.3) #+ facet_wrap(~team_team)
+winloss_plot_2
+
+winloss_plot_y <- ggplot(mv_all_team_data, aes(x = as.factor(team_game_outcome_2), fill = as.factor(team_favored))) + 
+    geom_bar(position = "dodge", color = "black") +
+    geom_text(
+        stat = "count",
+        aes(label = after_stat(count)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.3) #+ facet_wrap(~team_team)
+winloss_plot_y
+
+combined_plot <- winloss_plot_2 + winloss_plot_y + 
+    plot_layout(ncol = 2) + 
+    plot_annotation(title = "Comparison of Predicted Wins and Team Favored",
+                    theme = theme(plot.title = element_text(hjust = 0.5)))
+combined_plot
+
+# Scatter Plot
+winloss_plot_3 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, y = team_game_outcome_2, color = team_team)) + 
+    geom_point() + 
+    geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE, color = "black") + 
+    facet_wrap(~team_team)
+winloss_plot_3
+
+# Team Win Loss Probability
+winloss_plot_x <- ggplot(mv_all_team_data, aes(x = team_date, y = winloss_predicted_values, color = team_team)) + 
+    geom_point() + 
+    geom_path() +
+    facet_wrap(~team_team)
+winloss_plot_x
+```
+
+
+## Model 3: Upset Prediction
 
 ------------------------------------------------------------------------
 
