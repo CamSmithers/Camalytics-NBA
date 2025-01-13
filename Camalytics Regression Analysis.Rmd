@@ -399,20 +399,17 @@ library(ROCR)
 
 ## Needed Variables
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 set.seed(1234)
 ml_all_team_data <- all_team_data %>%
     dplyr::select(team_date, team_team, team_game_outcome, team_home, 
-           team_moneyline, team_cummean_pts_win, team_cummean_pts_allowed_win, 
-           team_cummean_pts_loss, team_cummean_pts_allowed_loss, 
-           opponent_cummean_pts_win, opponent_cummean_pts_allowed_win, 
-           opponent_cummean_pts_loss, opponent_cummean_pts_allowed_loss)
+           team_moneyline)
 ml_all_team_data <- na.omit(ml_all_team_data)
 ```
 
 ## Factoring Before Analysis
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 ml_all_team_data <- ml_all_team_data %>%
     mutate(team_game_outcome = factor(team_game_outcome,
                                         levels = c(1, 2, 3, 4),
@@ -422,7 +419,7 @@ ml_all_team_data <- ml_all_team_data %>%
 
 ## Splitting Data & Creating Models
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 #Splitting Data
 ml_team_split <- initial_split(ml_all_team_data, prop = .60)
 ml_team_train <- training(ml_team_split)
@@ -449,7 +446,7 @@ summary(ml_team_outcome)
 
 ## Cross Validation
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 cv_ml_team_outcome_fd <- train(team_game_outcome ~ team_moneyline
                             , data = ml_team_train
                             , method = "multinom"
@@ -476,7 +473,7 @@ summary(
 )$statistics$Accuracy
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 pred_class <- predict(cv_ml_team_outcome, ml_team_train)
 confusionMatrix(
     data = pred_class,
