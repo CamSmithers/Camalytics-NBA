@@ -340,6 +340,13 @@ print(go2_table)
 addmargins(go2_table)
 
 prop.table(go2_table)
+
+fd_table <- table(ma_all_team_data$team_favored, ma_all_team_data$team_game_outcome_2)
+print(fd_table)
+
+addmargins(fd_table)
+
+prop.table(fd_table)
 ```
 
 ## Model 3: Game Upset
