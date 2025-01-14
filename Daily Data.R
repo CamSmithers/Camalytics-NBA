@@ -1,8 +1,9 @@
 #Outcomes 2: Daily Predictions
 daily.predictions <- all_team_data %>%
     dplyr::select(team_date, team_team, team_opponent,
-                  winloss_predicted_values, team_cumrate_win,
-                  upset_predicted_values, team_cumrate_upset) %>%
+                  winloss_predicted_values, upset_predicted_values,
+                  team_cumrate_win, team_cumsum_win, team_cumsum_game,
+                  team_cumrate_upset, team_cumsum_upset, team_cumsum_favored) %>%
     mutate(team_team = case_when(
         #Atlantic Division
         team_team == "bos" ~ "Boston Celtics",
@@ -77,16 +78,23 @@ daily.predictions <- all_team_data %>%
         team_opponent == "mem" ~ "Memphis Grizzlies",
         team_opponent == "nop" ~ "New Orleans Pelicans",
         team_opponent == "sas" ~ "San Antonio Spurs")) %>%
-    rename("Game Date"="team_date", "Team"="team_team", "Opponent"="team_opponent",
-           "Win Probability"="winloss_predicted_values", "Current Win Pct"="team_cumrate_win", 
-           "Upset Probability"="upset_predicted_values", "Current Upset Pct"="team_cumrate_upset") %>%
+    rename("Game Date"="team_date", "Team"="team_team", 
+           "Opponent"="team_opponent", 
+           "Win Probability"="winloss_predicted_values",
+           "Upset Probability"="upset_predicted_values",
+           "Current Win Pct"="team_cumrate_win", 
+           "Current Upset Pct"="team_cumrate_upset",
+           "No. Games Won"="team_cumsum_win", 
+           "No. Games Played"="team_cumsum_game", 
+           "No. Games Upset"="team_cumsum_upset", 
+           "No. Games Favored"="team_cumsum_favored") %>%
     filter(`Game Date` == Sys.Date())
 View(daily.predictions)
 
 current_date <- format(Sys.Date(), "%m_%d_%y")
 
-write_csv(daily.predictions, 
-          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Game Outcome 2/Daily/go2_", current_date, ".csv"))
+#write_csv(daily.predictions, 
+#          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Game Outcome 2/Daily/go2_", current_date, ".csv"))
 
 #Outcome 2: Historical Predictions
 historical.predictions <- all_team_data %>%

@@ -23,7 +23,7 @@ library(foreign)
 library(nnet)
 library(readr)
 library(patchwork)
-library(plotly)
+#library(plotly)
 ```
 
 ## Loading in All Data
@@ -90,11 +90,9 @@ all_team_data <- all_team_data %>%
     #Outcome 2: Game Outcome 
     mutate(team_game_outcome_2 = ifelse(team_plusminus > 0, 1, 0)) %>%
     
-    #Outcome 3: Predicting Upset
-    mutate(team_game_outcome_3 = case_when(
-        team_favored == 1 & team_plusminus < 0 ~ 1,
-        team_favored == 1 & team_plusminus > 0 ~ 0,
-        TRUE ~ NA)) %>%
+    #Outcome 3: Game Upset
+        #See Upset Model for mutations
+    
     #Outcome 4: Covering Point Spread
     mutate(team_game_outcome_4 = case_when(
         team_pointdiff > team_spread & team_favored == 1 ~ 1,
@@ -243,15 +241,8 @@ all_team_data <- all_team_data %>%
         team_cumsum_win = cumsum(ifelse(is.na(team_win), 0, team_win)),
         team_cumsum_loss = cumsum(ifelse(is.na(team_loss), 0, team_loss)),
         team_cumsum_game = team_cumsum_win + team_cumsum_loss,
-        
-        team_cumsum_favored = cumsum(ifelse(is.na(team_favored), 0, team_favored)),
-        team_cumsum_upset = cumsum(ifelse(is.na(team_game_outcome_3), 0, team_game_outcome_3)),
-        
         #Cumulative Rates
-        team_cumrate_win = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_win / team_cumsum_game, 3)),
-        team_cumrate_favored = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_favored / team_cumsum_game, 3)),
-        team_cumrate_upset = ifelse(team_cumsum_favored == 0, NA, round(team_cumsum_upset / team_cumsum_favored, 3))
-    ) %>%
+        team_cumrate_win = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_win / team_cumsum_game, 3))) %>%
     ungroup()
 ```
 
@@ -289,8 +280,33 @@ all_team_data <- all_team_data %>%
 ## Outcome 3: Game Outcome (w/ Previous Condition Met)
 
 ```{r}
+all_team_data <- all_team_data %>%
+    mutate(winloss_model_guess = ifelse(winloss_predicted_values > 50, 1, 0)) %>%
+    #Outcome 3: Predicting Upset
+    mutate(team_game_outcome_3 = case_when(
+        winloss_model_guess == 1 & team_plusminus < 0 ~ 1,
+        winloss_model_guess == 1 & team_plusminus > 0 ~ 0,
+        TRUE ~ NA))
+
+all_team_data <- all_team_data %>%
+    dplyr::group_by(team_team) %>%
+    mutate(
+    team_cumsum_favored = cumsum(ifelse(is.na(winloss_model_guess), 0, winloss_model_guess)),
+    team_cumsum_upset = cumsum(ifelse(is.na(team_game_outcome_3), 0, team_game_outcome_3)),
+    
+    team_cumrate_favored = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_favored / team_cumsum_game, 3)),
+    team_cumrate_upset = ifelse(team_cumsum_favored == 0, NA, round(team_cumsum_upset / team_cumsum_favored, 3))) %>%
+    ungroup()
+    
+```
+
+
+```{r}
 upset_model <- glm(team_game_outcome_3 ~ team_cumrate_upset
-                   + team_spread
+#                   + team_cummean_offrating
+#                   + team_cummean_defrating
+                   + opponent_cummean_offrating
+                   + opponent_cummean_defrating
                    , data = all_team_data, family = "binomial")
 
 upset_model_summary <- summary(upset_model)
@@ -309,8 +325,8 @@ all_team_data <- cbind(all_team_data, upset_predicted_values)
 all_team_data <- all_team_data %>%
     mutate(upset_predicted_values = round(100 * upset_predicted_values, 1)) %>%
     mutate(upset_predicted_values = case_when(
-        team_favored == 1 ~ upset_predicted_values,
-        team_favored == 0 ~ NA))
+        winloss_model_guess == 1 ~ upset_predicted_values,
+        winloss_model_guess == 0 ~ NA))
 ```
 
 ------------------------------------------------------------------------

@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Multinomial Regression
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 #Choosing Outcome Variable
 outcome_var <- "team_game_outcome"
 
@@ -41,7 +41,7 @@ outcome_var_models <- base::lapply(outcome_predictors, function(significant_pred
 # Logistic Regression
 
 ```{r}
-testing_var <- "team_game_outcome_4"
+testing_var <- "team_game_outcome_3"
 
 testing_predictors <- setdiff(names(all_team_data), testing_var)
 
