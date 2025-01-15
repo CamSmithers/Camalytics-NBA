@@ -2,6 +2,7 @@
 daily.predictions <- all_team_data %>%
     dplyr::select(team_date, team_team, team_opponent,
                   winloss_predicted_values, upset_predicted_values,
+                  gametotal_predicted_values,
                   team_cumrate_win, team_cumsum_win, team_cumsum_game,
                   team_cumrate_upset, team_cumsum_upset, team_cumsum_favored) %>%
     mutate(team_team = case_when(
@@ -82,6 +83,7 @@ daily.predictions <- all_team_data %>%
            "Opponent"="team_opponent", 
            "Win Probability"="winloss_predicted_values",
            "Upset Probability"="upset_predicted_values",
+           "Expected Game Total"="gametotal_predicted_values",
            "Current Win Pct"="team_cumrate_win", 
            "Current Upset Pct"="team_cumrate_upset",
            "No. Games Won"="team_cumsum_win", 
@@ -98,7 +100,22 @@ current_date <- format(Sys.Date(), "%m_%d_%y")
 
 #Outcome 2: Historical Predictions
 historical.predictions <- all_team_data %>%
-    filter(team_date != Sys.Date())
+    dplyr::select(team_date, team_team, team_opponent,
+                  winloss_predicted_values, upset_predicted_values,
+                  team_cumrate_win, team_cumsum_win, team_cumsum_game,
+                  team_cumrate_upset, team_cumsum_upset, team_cumsum_favored) %>%
+    rename("Game Date"="team_date", "Team"="team_team", 
+           "Opponent"="team_opponent", 
+           "Win Probability"="winloss_predicted_values",
+           "Upset Probability"="upset_predicted_values",
+           "Current Win Pct"="team_cumrate_win", 
+           "Current Upset Pct"="team_cumrate_upset",
+           "No. Games Won"="team_cumsum_win", 
+           "No. Games Played"="team_cumsum_game", 
+           "No. Games Upset"="team_cumsum_upset", 
+           "No. Games Favored"="team_cumsum_favored") %>%
+    filter(`Game Date` != Sys.Date()) %>%
+    filter(`No. Games Played` >= 20)
     
 
 #write_csv(historical.predictions,

@@ -297,18 +297,11 @@ all_team_data <- all_team_data %>%
     team_cumrate_favored = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_favored / team_cumsum_game, 3)),
     team_cumrate_upset = ifelse(team_cumsum_favored == 0, NA, round(team_cumsum_upset / team_cumsum_favored, 3))) %>%
     ungroup()
-    
-```
 
-
-```{r}
 upset_model <- glm(team_game_outcome_3 ~ team_cumrate_upset
-#                   + team_cummean_offrating
-#                   + team_cummean_defrating
                    + opponent_cummean_offrating
                    + opponent_cummean_defrating
                    , data = all_team_data, family = "binomial")
-
 upset_model_summary <- summary(upset_model)
 upset_model_summary
 ```
@@ -329,17 +322,33 @@ all_team_data <- all_team_data %>%
         winloss_model_guess == 0 ~ NA))
 ```
 
+## Outcome 5: Game Total Over/Under
+
+```{r}
+gametotal_model <- lm(game_points ~ team_cummean_pts 
+                      + opponent_cummean_pts
+                      + team_cummean_pts_allowed
+                      + opponent_cummean_pts_allowed, data = all_team_data)
+gametotal_model_summary <- summary(gametotal_model)
+gametotal_model_summary
+```
+
+### TGO 5: Model Predictors to Data Frame
+
+```{r}
+gametotal_predicted_values <- predict(gametotal_model, newdata = all_team_data)
+all_team_data <- cbind(all_team_data, gametotal_predicted_values)
+
+all_team_data <- all_team_data %>%
+    mutate(gametotal_predicted_values = round(gametotal_predicted_values))
+```
+
+
 ------------------------------------------------------------------------
 
 # Model Analysis
 
 ## Mutations for Analysis
-
-```{r}
-
-```
-
-## Model 2: Game Outcome
 
 ```{r}
 ma_all_team_data <- all_team_data %>%
@@ -348,16 +357,30 @@ ma_all_team_data <- all_team_data %>%
            diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
            my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
     mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
-    filter(!is.na(team_fgm))
+    filter(!is.na(team_fgm)) %>%
+    filter(team_cumsum_game >= 10) %>%
+    mutate(my_predicted_win_factor = factor(my_predicted_win,
+                                            levels = c(0, 1),
+                                            labels = c("exploss", "expwin")),
+           team_game_outcome_2_factor = factor(team_game_outcome_2,
+                                               levels = c(0, 1),
+                                               labels = c("loss", "win")),
+           team_favored_factor = factor(team_favored,
+                                        levels = c(0, 1),
+                                        labels = c("exploss", "expwin")))
+```
 
-go2_table <- table(ma_all_team_data$my_predicted_win, ma_all_team_data$team_game_outcome_2)
+## Model 2: Game Outcome
+
+```{r}
+go2_table <- table(ma_all_team_data$my_predicted_win_factor, ma_all_team_data$team_game_outcome_2_factor)
 print(go2_table)
 
 addmargins(go2_table)
 
 prop.table(go2_table)
 
-fd_table <- table(ma_all_team_data$team_favored, ma_all_team_data$team_game_outcome_2)
+fd_table <- table(ma_all_team_data$team_favored_factor, ma_all_team_data$team_game_outcome_2_factor)
 print(fd_table)
 
 addmargins(fd_table)
@@ -380,7 +403,8 @@ mv_all_team_data <- all_team_data %>%
            diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
            my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
     mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
-    filter(!is.na(team_fgm))
+    filter(!is.na(team_fgm)) %>%
+    filter(team_cumsum_game > 10)
 
 mv_one_team <- mv_all_team_data %>%
     dplyr::filter(team_team == "phx")
