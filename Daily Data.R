@@ -95,19 +95,21 @@ View(daily.predictions)
 
 current_date <- format(Sys.Date(), "%m_%d_%y")
 
-#write_csv(daily.predictions, 
-#          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Game Outcome 2/Daily/go2_", current_date, ".csv"))
+write_csv(daily.predictions, 
+          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Daily/GameOutcome_", current_date, ".csv"))
 
 #Outcome 2: Historical Predictions
 historical.predictions <- all_team_data %>%
     dplyr::select(team_date, team_team, team_opponent,
                   winloss_predicted_values, upset_predicted_values,
+                  gametotal_predicted_values,
                   team_cumrate_win, team_cumsum_win, team_cumsum_game,
                   team_cumrate_upset, team_cumsum_upset, team_cumsum_favored) %>%
     rename("Game Date"="team_date", "Team"="team_team", 
            "Opponent"="team_opponent", 
            "Win Probability"="winloss_predicted_values",
            "Upset Probability"="upset_predicted_values",
+           "Expected Game Total"="gametotal_predicted_values",
            "Current Win Pct"="team_cumrate_win", 
            "Current Upset Pct"="team_cumrate_upset",
            "No. Games Won"="team_cumsum_win", 
@@ -118,5 +120,5 @@ historical.predictions <- all_team_data %>%
     filter(`No. Games Played` >= 20)
     
 
-#write_csv(historical.predictions,
-#          "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Game Outcome 2/historical_predictions.csv")
+write_csv(historical.predictions,
+          "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/historical_predictions.csv")

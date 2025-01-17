@@ -248,9 +248,9 @@ all_team_data <- all_team_data %>%
 
 ------------------------------------------------------------------------
 
-# Logistic Regression
+# Logistic Regression & Linear Regression
 
-## Outcome 2: Game Outcome
+## Outcome 2: Game Outcome: Binary Logistic Regression
 
 ```{r}
 winloss_model <- glm(team_game_outcome_2 ~ team_home
@@ -277,7 +277,7 @@ all_team_data <- all_team_data %>%
     mutate(winloss_predicted_values = round(100 * winloss_predicted_values, 1))
 ```
 
-## Outcome 3: Game Outcome (w/ Previous Condition Met)
+## Outcome 3: Game Outcome (w/ Previous Condition Met): Binary Logistic Regression
 
 ```{r}
 all_team_data <- all_team_data %>%
@@ -322,7 +322,7 @@ all_team_data <- all_team_data %>%
         winloss_model_guess == 0 ~ NA))
 ```
 
-## Outcome 5: Game Total Over/Under
+## Outcome 5: Game Total Over/Under: Linear Regression
 
 ```{r}
 gametotal_model <- lm(game_points ~ team_cummean_pts 
@@ -355,7 +355,8 @@ ma_all_team_data <- all_team_data %>%
     mutate(my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
            my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
            diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
-           my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
+           my_predicted_upset_1 = ifelse(upset_predicted_values > 50, 1, 0),
+           my_predicted_upset_2 = ifelse(upset_predicted_values > winloss_predicted_values, 1, 0)) %>%
     mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
     filter(!is.na(team_fgm)) %>%
     filter(team_cumsum_game >= 10) %>%
@@ -367,25 +368,30 @@ ma_all_team_data <- all_team_data %>%
                                                labels = c("loss", "win")),
            team_favored_factor = factor(team_favored,
                                         levels = c(0, 1),
-                                        labels = c("exploss", "expwin")))
+                                        labels = c("exploss", "expwin")),
+           my_predicted_upset_1_factor = factor(my_predicted_upset_1,
+                                                levels = c(0, 1),
+                                                labels = c("no exp upset", "exp upset")),
+           my_predicted_upset_2_factor = factor(my_predicted_upset_2,
+                                                levels = c(0, 1),
+                                                labels = c("no exp upset", "exp upset")),
+           team_game_outcome_3_factor = factor(team_game_outcome_3, 
+                                               levels = c(0, 1),
+                                               labels = c("no upset", "upset")))
 ```
 
 ## Model 2: Game Outcome
 
 ```{r}
-go2_table <- table(ma_all_team_data$my_predicted_win_factor, ma_all_team_data$team_game_outcome_2_factor)
-print(go2_table)
+cross_table_1 <- table(ma_all_team_data$my_predicted_upset_1_factor, ma_all_team_data$team_game_outcome_3_factor)
+print(cross_table_1)
+addmargins(cross_table_1)
+prop.table(cross_table_1)
 
-addmargins(go2_table)
-
-prop.table(go2_table)
-
-fd_table <- table(ma_all_team_data$team_favored_factor, ma_all_team_data$team_game_outcome_2_factor)
-print(fd_table)
-
-addmargins(fd_table)
-
-prop.table(fd_table)
+cross_table_2 <- table(ma_all_team_data$my_predicted_upset_2_factor, ma_all_team_data$team_game_outcome_3_factor)
+print(cross_table_2)
+addmargins(cross_table_2)
+prop.table(cross_table_2)
 ```
 
 ## Model 3: Game Upset
