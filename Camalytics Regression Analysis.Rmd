@@ -343,6 +343,37 @@ all_team_data <- all_team_data %>%
     mutate(gametotal_predicted_values = round(gametotal_predicted_values))
 ```
 
+------------------------------------------------------------------------
+
+# Post Modeling Cleaning
+
+```{r}
+all_team_data <- all_team_data %>%
+    mutate(outcome_2_estimates_categories = case_when(
+        winloss_predicted_values >= 65 & upset_predicted_values <= 25 ~ "Very Likely", #Good
+        
+        winloss_predicted_values >= 65 & upset_predicted_values > 25 & upset_predicted_values < 50 ~ "Likely", #Good
+        
+        winloss_predicted_values >= 50 & winloss_predicted_values < 65 & upset_predicted_values <= 25 ~ "Likely", #Good
+        
+        winloss_predicted_values >= 50 & winloss_predicted_values < 65 
+        & upset_predicted_values > 25 & upset_predicted_values < 50 ~ "Neutral", 
+        
+        winloss_predicted_values >= 65 & winloss_predicted_values >= 75 
+        & upset_predicted_values >= 50 & upset_predicted_values <= 75 ~ "Unlikely"
+        
+        winloss_predicted_values >= 50 & winloss_predicted_values < 65 
+        & upset_predicted_values >= 50 ~ "Very Unlikely"
+    ))
+```
+
+
+prediction_zones <- data.frame(
+  xmin = c(50, 50, 65, 65, 65, 50),
+  xmax = c(65, 65, 100, 75, 100, 65),
+  ymin = c(25, 50, 0, 50, 25, 0),
+  ymax = c(50, 100, 25, 75, 50, 25),
+  fill = c("3. Neutral", "5. Very Unlikely", "1. Very Likely", "4. Unlikely", "2. Likely", "2. Likely"))
 
 ------------------------------------------------------------------------
 
@@ -410,7 +441,7 @@ mv_all_team_data <- all_team_data %>%
            my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
     mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
     filter(!is.na(team_fgm)) %>%
-    filter(team_cumsum_game > 10)
+    filter(team_cumsum_game >= 10)
 
 mv_one_team <- mv_all_team_data %>%
     dplyr::filter(team_team == "phx")
@@ -439,14 +470,40 @@ winloss_plot_3 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, y =
     facet_wrap(~team_team)
 winloss_plot_3
 
-#winloss_plot_4 <- plot_ly(data = mv_one_team, 
-#                          x=~team_cummean_offrating, 
-#                          y=~team_cummean_defrating, 
-#                          z=~team_cummean_netrating, 
-#                          color = ~winloss_predicted_values, 
-#                          type="scatter3d", 
-#                          mode="markers")
-#winloss_plot_4
+prediction_zones <- data.frame(
+  xmin = c(50, 50, 65, 65, 65, 50),
+  xmax = c(65, 65, 100, 75, 100, 65),
+  ymin = c(25, 50, 0, 50, 25, 0),
+  ymax = c(50, 100, 25, 75, 50, 25),
+  fill = c("3. Neutral", "5. Very Unlikely", "1. Very Likely", "4. Unlikely", "2. Likely", "2. Likely"))
+
+winloss_plot_4 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, y = upset_predicted_values, color = as.factor(team_game_outcome_2))) + 
+    scale_x_continuous(limits = c(50, 100)) + 
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_vline(xintercept = 65, color = "white", linetype = "dashed") + 
+    geom_rect(data = prediction_zones, 
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = fill), 
+            alpha = 0.1, color = "black", inherit.aes = FALSE) + 
+    scale_fill_manual(values = c(
+    "3. Neutral" = "yellow",
+    "5. Very Unlikely" = "red",
+    "1. Very Likely" = "green",
+    "4. Unlikely" = "orange",
+    "2. Likely" = "blue",
+    "2. Likely" = "blue")) + 
+    geom_point() + 
+    scale_color_discrete(labels = c("Loss", "Win")) + 
+    labs(
+    title = "Team Win & Upset Probability", 
+    x = "Win Probability", 
+    y = "Upset Probability", 
+    color = "Game Outcome", 
+    fill = "Probability Zones") + 
+    theme_bw()
+winloss_plot_4
+
+ggsave(filename = "GameOutcome Splitting.png", plot = winloss_plot_4,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", width = 25, height = 20, units = "cm")
 ```
 
 ```{r}
@@ -458,7 +515,6 @@ winloss_plot_x <- ggplot(mv_all_team_data, aes(x = as.factor(team_game_outcome_2
         aes(label = after_stat(count)),
         position = position_dodge(width = 0.9),
         vjust = -0.3) #+ facet_wrap(~team_team)
-winloss_plot_x
 
 winloss_plot_y <- ggplot(mv_all_team_data, aes(x = as.factor(team_game_outcome_2), fill = as.factor(team_favored))) + 
     geom_bar(position = "dodge", color = "black") +
@@ -467,7 +523,6 @@ winloss_plot_y <- ggplot(mv_all_team_data, aes(x = as.factor(team_game_outcome_2
         aes(label = after_stat(count)),
         position = position_dodge(width = 0.9),
         vjust = -0.3) #+ facet_wrap(~team_team)
-winloss_plot_y
 
 combined_plot <- winloss_plot_x + winloss_plot_y + 
     plot_layout(ncol = 2) + 
@@ -477,6 +532,17 @@ combined_plot
 ```
 
 ## Model 3: Upset Prediction
+
+## Model 4: Game Total
+
+```{r}
+gametotal_plot_1 <- ggplot(mv_all_team_data, aes(x = gametotal_predicted_values, y = game_points)) + 
+    geom_point() +
+    geom_smooth() +
+    geom_jitter()
+gametotal_plot_1
+```
+
 
 ------------------------------------------------------------------------
 

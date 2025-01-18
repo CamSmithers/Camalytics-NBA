@@ -95,8 +95,8 @@ View(daily.predictions)
 
 current_date <- format(Sys.Date(), "%m_%d_%y")
 
-write_csv(daily.predictions, 
-          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Daily/GameOutcome_", current_date, ".csv"))
+#write_csv(daily.predictions, 
+#          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Daily/GameOutcome_", current_date, ".csv"))
 
 #Outcome 2: Historical Predictions
 historical.predictions <- all_team_data %>%
@@ -120,5 +120,13 @@ historical.predictions <- all_team_data %>%
     filter(`No. Games Played` >= 20)
     
 
-write_csv(historical.predictions,
-          "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/historical_predictions.csv")
+#write_csv(historical.predictions,
+#          "/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/historical_predictions.csv")
+
+
+#Data Export for Public R Markdown File
+
+nba_team_24_25 <- all_team_data %>%
+    filter(team_date != Sys.Date())
+#write_csv(nba_team_24_25, 
+#          "/Users/camsmithers/Desktop/NBA Project/Main/Data/nba_team_24_25.csv")
