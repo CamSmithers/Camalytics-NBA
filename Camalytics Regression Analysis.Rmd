@@ -350,30 +350,18 @@ all_team_data <- all_team_data %>%
 ```{r}
 all_team_data <- all_team_data %>%
     mutate(outcome_2_estimates_categories = case_when(
-        winloss_predicted_values >= 65 & upset_predicted_values <= 25 ~ "Very Likely", #Good
-        
-        winloss_predicted_values >= 65 & upset_predicted_values > 25 & upset_predicted_values < 50 ~ "Likely", #Good
-        
-        winloss_predicted_values >= 50 & winloss_predicted_values < 65 & upset_predicted_values <= 25 ~ "Likely", #Good
-        
-        winloss_predicted_values >= 50 & winloss_predicted_values < 65 
-        & upset_predicted_values > 25 & upset_predicted_values < 50 ~ "Neutral", 
-        
-        winloss_predicted_values >= 65 & winloss_predicted_values >= 75 
-        & upset_predicted_values >= 50 & upset_predicted_values <= 75 ~ "Unlikely"
-        
-        winloss_predicted_values >= 50 & winloss_predicted_values < 65 
-        & upset_predicted_values >= 50 ~ "Very Unlikely"
-    ))
+        winloss_predicted_values >= 50 & winloss_predicted_values < 65 & upset_predicted_values >= 50 ~ 0,  # Category 0
+        winloss_predicted_values >= 65 & upset_predicted_values >= 50 ~ 1,  # Category 1
+        winloss_predicted_values >= 50 & winloss_predicted_values < 65 & 
+            upset_predicted_values >= 25 & upset_predicted_values < 50 ~ 2,  # Category 2
+        (winloss_predicted_values >= 50 & winloss_predicted_values < 65 & upset_predicted_values < 25) |  # Category 3
+        (winloss_predicted_values >= 65 & upset_predicted_values >= 25 & upset_predicted_values < 50) ~ 3,
+        winloss_predicted_values >= 65 & upset_predicted_values < 25 ~ 4,  # Category 4
+    )) %>%
+    mutate(outcome_2_estimates_factor = factor(outcome_2_estimates_categories,
+                                               levels = c(0, 1, 2, 3, 4),
+                                               labels = c("Very Unlikely", "Unlikely", "Coin Flip", "Likely", "Very Likely")))
 ```
-
-
-prediction_zones <- data.frame(
-  xmin = c(50, 50, 65, 65, 65, 50),
-  xmax = c(65, 65, 100, 75, 100, 65),
-  ymin = c(25, 50, 0, 50, 25, 0),
-  ymax = c(50, 100, 25, 75, 50, 25),
-  fill = c("3. Neutral", "5. Very Unlikely", "1. Very Likely", "4. Unlikely", "2. Likely", "2. Likely"))
 
 ------------------------------------------------------------------------
 
@@ -411,7 +399,7 @@ ma_all_team_data <- all_team_data %>%
                                                labels = c("no upset", "upset")))
 ```
 
-## Model 2: Game Outcome
+## Sensitivity, Specificity, and Accuracy
 
 ```{r}
 cross_table_1 <- table(ma_all_team_data$my_predicted_upset_1_factor, ma_all_team_data$team_game_outcome_3_factor)
@@ -424,8 +412,6 @@ print(cross_table_2)
 addmargins(cross_table_2)
 prop.table(cross_table_2)
 ```
-
-## Model 3: Game Upset
 
 ------------------------------------------------------------------------
 
@@ -440,11 +426,14 @@ mv_all_team_data <- all_team_data %>%
            diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
            my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
     mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
-    filter(!is.na(team_fgm)) %>%
-    filter(team_cumsum_game >= 10)
+#    filter(!is.na(team_fgm)) %>%
+    filter(team_cumsum_game >= 5)
 
-mv_one_team <- mv_all_team_data %>%
-    dplyr::filter(team_team == "phx")
+mv_outcome_2 <- mv_all_team_data %>%
+    filter(!is.na(upset_predicted_values))
+
+mv_outcome_2_daily <- mv_outcome_2 %>%
+    filter(team_date == Sys.Date())
 ```
 
 ## Model 2: Game Outcome
@@ -464,12 +453,42 @@ winloss_plot_2 <- ggplot(mv_all_team_data, aes(x = team_date, y = winloss_predic
 winloss_plot_2
 
 # Scatter Plot
-winloss_plot_3 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, y = team_game_outcome_2, color = team_team)) + 
-    geom_point() + 
-    geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE, color = "black") + 
-    facet_wrap(~team_team)
+winloss_plot_3 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, y = upset_predicted_values, color = as.factor(outcome_2_estimates_categories))) + 
+    geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
+    geom_abline(slope = 25/65, color = "black", linetype = "solid") + 
+    geom_point() +
+    scale_x_continuous(limits = c(50, 100)) + 
+    theme_classic()
+#    geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE, color = "black")
 winloss_plot_3
 
+#winloss_plot_x <- ggplot(mv_all_team_data, aes(x = as.factor(team_game_outcome_2), fill = as.factor(my_predicted_win))) + 
+#    geom_bar(position = "dodge", color = "black") +
+#    geom_text(
+#        stat = "count",
+#        aes(label = after_stat(count)),
+#        position = position_dodge(width = 0.9),
+#        vjust = -0.3) #+ facet_wrap(~team_team)
+
+winloss_plot_4 <- ggplot(mv_outcome_2, aes(x = as.factor(outcome_2_estimates_categories), fill = as.factor(team_game_outcome_2))) + 
+    geom_bar(position = "dodge", color = "black")
+winloss_plot_4
+
+winloss_plot_5 <- ggplot(mv_outcome_2_daily, aes(x = winloss_predicted_values, y = upset_predicted_values, color = team_team)) + 
+    geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
+    geom_abline(slope = 25/65, color = "black", linetype = "solid") +
+    geom_point() + 
+    scale_x_continuous(limits = c(50, 100)) + 
+    theme_classic()
+#    geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE, color = "black")
+winloss_plot_5
+```
+
+```{r}
 prediction_zones <- data.frame(
   xmin = c(50, 50, 65, 65, 65, 50),
   xmax = c(65, 65, 100, 75, 100, 65),
@@ -477,7 +496,9 @@ prediction_zones <- data.frame(
   ymax = c(50, 100, 25, 75, 50, 25),
   fill = c("3. Neutral", "5. Very Unlikely", "1. Very Likely", "4. Unlikely", "2. Likely", "2. Likely"))
 
-winloss_plot_4 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, y = upset_predicted_values, color = as.factor(team_game_outcome_2))) + 
+winloss_plot_z <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values,
+                                               y = upset_predicted_values,
+                                               color = as.factor(team_game_outcome_2))) + 
     scale_x_continuous(limits = c(50, 100)) + 
     geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
     geom_vline(xintercept = 65, color = "white", linetype = "dashed") + 
@@ -500,11 +521,13 @@ winloss_plot_4 <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values, y =
     color = "Game Outcome", 
     fill = "Probability Zones") + 
     theme_bw()
-winloss_plot_4
+winloss_plot_z
 
-ggsave(filename = "GameOutcome Splitting.png", plot = winloss_plot_4,
-       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", width = 25, height = 20, units = "cm")
+#ggsave(filename = "GameOutcome Splitting.png", plot = winloss_plot_4,
+#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", width = 25, height = 20, units = "cm")
 ```
+
+
 
 ```{r}
 # Win vs Loss
