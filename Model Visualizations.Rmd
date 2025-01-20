@@ -1,0 +1,187 @@
+---
+title: "Model Visualizations"
+author: "Cam Smithers"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Model Visualizations
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(patchwork)
+#library(plotly)
+```
+
+# Data and Extra Global Vars
+
+```{r}
+team_visual_data <- readRDS("/Users/camsmithers/Desktop/NBA Project/Main/Data/cleaned_nba_data.rds")
+
+current_date <- format(Sys.Date(), "%m_%d_%y")
+```
+
+# Post Modeling Cleaning
+
+```{r}
+team_visual_data <- team_visual_data %>%
+    mutate(outcome_2_estimates_categories = case_when(
+        # Category 0
+        
+        winloss_predicted_values >= 50 & winloss_predicted_values < 65 
+        & upset_predicted_values >= 50 ~ 0,
+        
+        # Category 1
+        winloss_predicted_values >= 65 & upset_predicted_values >= 50 ~ 1,
+        
+        # Category 2
+        winloss_predicted_values >= 50 & winloss_predicted_values < 65 & 
+            upset_predicted_values >= 25 & upset_predicted_values < 50 ~ 2,
+        
+        # Category 3
+        (winloss_predicted_values >= 50 & winloss_predicted_values < 65 & upset_predicted_values < 25) | 
+        (winloss_predicted_values >= 65 & upset_predicted_values >= 25 & upset_predicted_values < 50) ~ 3,
+        
+        # Category 4
+        winloss_predicted_values >= 65 & upset_predicted_values < 25 ~ 4,
+    )) %>%
+    mutate(outcome_2_estimates_factor = factor(outcome_2_estimates_categories,
+                                               levels = c(0, 1, 2, 3, 4),
+                                               labels = c("Very Unlikely", "Unlikely", "Coin Flip", "Likely", "Very Likely")))
+```
+
+# Daily Visualizations
+
+## Data Cleaning
+
+```{r}
+daily.team_visual_data <- team_visual_data %>%
+    mutate(my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
+           my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
+           diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
+           my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
+    mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
+    filter(team_cumsum_game >= 5) %>%
+    filter(!is.na(upset_predicted_values)) %>%
+    filter(team_date == Sys.Date())
+```
+
+## Visualizations
+
+```{r}
+daily.outcome_plot_1 <- ggplot(daily.team_visual_data,
+                               aes(x = winloss_predicted_values,
+                                   y = upset_predicted_values,
+                                   color = team_team)) + 
+    geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
+    geom_abline(slope = 25/65, color = "black", linetype = "solid") +
+    geom_point(size = 5) + 
+    scale_x_continuous(limits = c(50, 100)) + 
+    theme_classic() +
+    labs(
+    title = "Team Win & Upset Probability", 
+    x = "Win Probability", 
+    y = "Upset Probability", 
+    color = "Teams")
+daily.outcome_plot_1
+ggsave(filename = paste0("game_splitting_", current_date, ".png"), 
+       plot = daily.outcome_plot_1,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+       width = 25, height = 20, units = "cm")
+```
+
+# Overall Visualizations
+
+## Data Cleaning
+
+```{r}
+all.team_visual_data <- team_visual_data %>%
+    mutate(my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
+           my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
+           diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
+           my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
+    mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
+    filter(!is.na(team_fgm)) %>%
+    filter(team_cumsum_game >= 5) %>%
+    filter(!is.na(upset_predicted_values)) %>%
+    filter(team_date != Sys.Date()) %>%
+    filter(team_team %in% daily.team_visual_data$team_team)
+```
+
+## Visualizations
+
+```{r}
+all.outcome_plot_1 <-  ggplot(all.team_visual_data, 
+                              aes(x = winloss_predicted_values,
+                                  y = upset_predicted_values,
+                                  color = as.factor(team_game_outcome_2))) + 
+    geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
+    geom_abline(slope = 25/65, color = "black", linetype = "solid") + 
+    geom_point() +
+    scale_x_continuous(limits = c(50, 100)) + 
+    theme_classic() +
+    facet_wrap(~team_team) +
+    labs(
+        title = "Team Win & Upset Probability",
+        x = "Win Probability", 
+    y = "Upset Probability", 
+    color = "Outcome") + 
+    scale_color_manual(values = c("0"="red3", "1"="palegreen3"),
+                       labels = c("0"="Loss", "1"="Win"))
+all.outcome_plot_1
+ggsave(filename = paste0("game_splitting_history_", current_date, ".png"), 
+       plot = all.outcome_plot_1,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+       width = 25, height = 20, units = "cm")
+```
+
+
+
+# Other Visualizations
+
+```{r include=FALSE, eval=FALSE}
+prediction_zones <- data.frame(
+  xmin = c(50, 50, 65, 65, 65, 50),
+  xmax = c(65, 65, 100, 75, 100, 65),
+  ymin = c(25, 50, 0, 50, 25, 0),
+  ymax = c(50, 100, 25, 75, 50, 25),
+  fill = c("3. Neutral", "5. Very Unlikely", "1. Very Likely", "4. Unlikely", "2. Likely", "2. Likely"))
+
+winloss_plot_z <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values,
+                                               y = upset_predicted_values,
+                                               color = as.factor(team_game_outcome_2))) + 
+    scale_x_continuous(limits = c(50, 100)) + 
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_vline(xintercept = 65, color = "white", linetype = "dashed") + 
+    geom_rect(data = prediction_zones, 
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = fill), 
+            alpha = 0.1, color = "black", inherit.aes = FALSE) + 
+    scale_fill_manual(values = c(
+    "3. Neutral" = "yellow",
+    "5. Very Unlikely" = "red",
+    "1. Very Likely" = "green",
+    "4. Unlikely" = "orange",
+    "2. Likely" = "blue",
+    "2. Likely" = "blue")) + 
+    geom_point() + 
+    scale_color_discrete(labels = c("Loss", "Win")) + 
+    labs(
+    title = "Team Win & Upset Probability", 
+    x = "Win Probability", 
+    y = "Upset Probability", 
+    color = "Game Outcome", 
+    fill = "Probability Zones") + 
+    theme_bw()
+winloss_plot_z
+```
+
