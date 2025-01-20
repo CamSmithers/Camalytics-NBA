@@ -53,7 +53,81 @@ team_visual_data <- team_visual_data %>%
     )) %>%
     mutate(outcome_2_estimates_factor = factor(outcome_2_estimates_categories,
                                                levels = c(0, 1, 2, 3, 4),
-                                               labels = c("Very Unlikely", "Unlikely", "Coin Flip", "Likely", "Very Likely")))
+                                               labels = c("Very Unlikely", "Unlikely", "Coin Flip", "Likely", "Very Likely"))) %>%
+    mutate(team_name = case_when(
+        #Atlantic Division
+        team_team == "bos" ~ "Boston Celtics",
+        team_team == "bkn" ~ "Brooklyn Nets",
+        team_team == "nyk" ~ "New York Knicks",
+        team_team == "phi" ~ "Philadelphia 76ers",
+        team_team == "tor" ~ "Toronto Raptors",
+        #Central Division
+        team_team == "chi" ~ "Chicago Bulls",
+        team_team == "cle" ~ "Cleveland Cavaliers",
+        team_team == "det" ~ "Detroit Pistons",
+        team_team == "ind" ~ "Indiana Pacers",
+        team_team == "mil" ~ "Milwaukee Bucks",
+        #Southeast Division
+        team_team == "atl" ~ "Atlanta Hawks",
+        team_team == "cha" ~ "Charlotte Hornets",
+        team_team == "mia" ~ "Miami Heat",
+        team_team == "orl" ~ "Orlando Magic",
+        team_team == "was" ~ "Washington Wizards",
+        #Northwest Division
+        team_team == "den" ~ "Denver Nuggets",
+        team_team == "min" ~ "Minnesota Timberwolves",
+        team_team == "okc" ~ "Oklahoma City Thunder",
+        team_team == "por" ~ "Portland Trail Blazers",
+        team_team == "uta" ~ "Utah Jazz",
+        #Pacific Division
+        team_team == "gsw" ~ "Golden State Warriors",
+        team_team == "lac" ~ "Los Angeles Clippers",
+        team_team == "lal" ~ "Los Angeles Lakers",
+        team_team == "phx" ~ "Phoenix Suns",
+        team_team == "sac" ~ "Sacramento Kings",
+        #Southwest Division
+        team_team == "dal" ~ "Dallas Mavericks",
+        team_team == "hou" ~ "Houston Rockets",
+        team_team == "mem" ~ "Memphis Grizzlies",
+        team_team == "nop" ~ "New Orleans Pelicans",
+        team_team == "sas" ~ "San Antonio Spurs")) %>%
+    mutate(opponent_name = case_when(
+        #Atlantic Division
+        team_opponent == "bos" ~ "Boston Celtics",
+        team_opponent == "bkn" ~ "Brooklyn Nets",
+        team_opponent == "nyk" ~ "New York Knicks",
+        team_opponent == "phi" ~ "Philadelphia 76ers",
+        team_opponent == "tor" ~ "Toronto Raptors",
+        #Central Division
+        team_opponent == "chi" ~ "Chicago Bulls",
+        team_opponent == "cle" ~ "Cleveland Cavaliers",
+        team_opponent == "det" ~ "Detroit Pistons",
+        team_opponent == "ind" ~ "Indiana Pacers",
+        team_opponent == "mil" ~ "Milwaukee Bucks",
+        #Southeast Division
+        team_opponent == "atl" ~ "Atlanta Hawks",
+        team_opponent == "cha" ~ "Charlotte Hornets",
+        team_opponent == "mia" ~ "Miami Heat",
+        team_opponent == "orl" ~ "Orlando Magic",
+        team_opponent == "was" ~ "Washington Wizards",
+        #Northwest Division
+        team_opponent == "den" ~ "Denver Nuggets",
+        team_opponent == "min" ~ "Minnesota Timberwolves",
+        team_opponent == "okc" ~ "Oklahoma City Thunder",
+        team_opponent == "por" ~ "Portland Trail Blazers",
+        team_opponent == "uta" ~ "Utah Jazz",
+        #Pacific Division
+        team_opponent == "gsw" ~ "Golden State Warriors",
+        team_opponent == "lac" ~ "Los Angeles Clippers",
+        team_opponent == "lal" ~ "Los Angeles Lakers",
+        team_opponent == "phx" ~ "Phoenix Suns",
+        team_opponent == "sac" ~ "Sacramento Kings",
+        #Southwest Division
+        team_opponent == "dal" ~ "Dallas Mavericks",
+        team_opponent == "hou" ~ "Houston Rockets",
+        team_opponent == "mem" ~ "Memphis Grizzlies",
+        team_opponent == "nop" ~ "New Orleans Pelicans",
+        team_opponent == "sas" ~ "San Antonio Spurs"))
 ```
 
 # Daily Visualizations
@@ -78,7 +152,7 @@ daily.team_visual_data <- team_visual_data %>%
 daily.outcome_plot_1 <- ggplot(daily.team_visual_data,
                                aes(x = winloss_predicted_values,
                                    y = upset_predicted_values,
-                                   color = team_team)) + 
+                                   color = team_name)) + 
     geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
     geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
     geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
@@ -87,7 +161,7 @@ daily.outcome_plot_1 <- ggplot(daily.team_visual_data,
     scale_x_continuous(limits = c(50, 100)) + 
     theme_classic() +
     labs(
-    title = "Team Win & Upset Probability", 
+    title = "Win & Upset Probability: January 20th, 2024", 
     x = "Win Probability", 
     y = "Upset Probability", 
     color = "Teams")
@@ -104,16 +178,18 @@ ggsave(filename = paste0("game_splitting_", current_date, ".png"),
 
 ```{r}
 all.team_visual_data <- team_visual_data %>%
-    mutate(my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
-           my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
-           diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
-           my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
-    mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
-    filter(!is.na(team_fgm)) %>%
-    filter(team_cumsum_game >= 5) %>%
-    filter(!is.na(upset_predicted_values)) %>%
-    filter(team_date != Sys.Date()) %>%
-    filter(team_team %in% daily.team_visual_data$team_team)
+    mutate(
+        my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
+        my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
+        diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
+        my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0), 
+        fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
+    filter(
+        !is.na(team_fgm),
+        team_cumsum_game >= 5,
+        !is.na(upset_predicted_values),
+        team_date != Sys.Date(),
+        team_team %in% daily.team_visual_data$team_team)
 ```
 
 ## Visualizations
@@ -130,12 +206,12 @@ all.outcome_plot_1 <-  ggplot(all.team_visual_data,
     geom_point() +
     scale_x_continuous(limits = c(50, 100)) + 
     theme_classic() +
-    facet_wrap(~team_team) +
+    facet_wrap(~team_name) +
     labs(
-        title = "Team Win & Upset Probability",
-        x = "Win Probability", 
-    y = "Upset Probability", 
-    color = "Outcome") + 
+        title = "Win & Upset Probability History",
+        x = "Win Probability",
+        y = "Upset Probability", 
+        color = "Outcome") + 
     scale_color_manual(values = c("0"="red3", "1"="palegreen3"),
                        labels = c("0"="Loss", "1"="Win"))
 all.outcome_plot_1

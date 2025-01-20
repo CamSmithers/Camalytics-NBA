@@ -38,16 +38,16 @@ outcome_var_models <- base::lapply(outcome_predictors, function(significant_pred
 #outcome_var_models
 ```
 
-# Logistic Regression
+# Logistic Regression or Linear
 
 ```{r}
-testing_var <- "team_game_outcome_3"
+testing_var <- "team_plusminus"
 
 testing_predictors <- setdiff(names(all_team_data), testing_var)
 
 testing_var_models <- base::lapply(testing_predictors, function(test_predictor) {
-    glm(as.formula(paste(testing_var, "~", test_predictor))
-        , data = all_team_data, family = "binomial")
+    lm(as.formula(paste(testing_var, "~", test_predictor))
+        , data = all_team_data)
 })
 
 lapply(testing_var_models, summary)

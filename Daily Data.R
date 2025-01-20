@@ -93,7 +93,7 @@ daily.predictions <- all_team_data %>%
     filter(`Game Date` == Sys.Date())
 View(daily.predictions)
 
-current_date <- format(Sys.Date(), "%m_%d_%y")
+#current_date <- format(Sys.Date(), "%m_%d_%y")
 
-write_csv(daily.predictions, 
-          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Daily/GameOutcome_", current_date, ".csv"))
+#write_csv(daily.predictions, 
+#          paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Daily/GameOutcome_", current_date, ".csv"))

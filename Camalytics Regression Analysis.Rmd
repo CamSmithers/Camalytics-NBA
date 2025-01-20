@@ -105,7 +105,9 @@ all_team_data <- all_team_data %>%
     mutate(team_game_outcome_5 = ifelse(game_points > team_gametotal, 1, 0))
 ```
 
-## Data Cleaning 3: Team Averages
+## Data Cleaning 3: Team Averages (General)
+
+### Data Cleaning 3.1: Team Averages
 
 ```{r}
 all_team_average <- all_team_data %>%
@@ -151,7 +153,11 @@ all_team_average <- all_team_data %>%
         #Other Statistics
         team_cummean_reb, team_cummean_tov, team_cummean_netrating, 
         team_cummean_pts_off_tov)
+```
 
+### Data Cleaning 3.2: Opponent Averages
+
+```{r}
 all_opponent_average <- all_team_data %>%
     group_by(team_team) %>%
     mutate(
@@ -195,7 +201,11 @@ all_opponent_average <- all_team_data %>%
         #Other Statistics
         opponent_cummean_reb, opponent_cummean_tov, opponent_cummean_netrating, 
         opponent_cummean_pts_off_tov)
+```
 
+### Data Cleaning 3.3: League Averages
+
+```{r}
 all_league_average <- all_team_data %>%
     group_by(team_date) %>%
     summarize(
@@ -224,7 +234,11 @@ all_league_average <- all_team_data %>%
          league_cummean_ast, league_cummean_tov, 
          league_cummean_offrating, league_cummean_defrating, league_cummean_netrating, .direction = "down") %>%
     dplyr::select(-starts_with("league_avg_"))
+```
 
+### Data Cleaning 3.4: Joining Data
+
+```{r}
 all_team_data <- all_team_data %>%
     left_join(all_team_average, by = c("team_team" = "team_team", "team_date" = "team_date")) %>%
     left_join(all_opponent_average, by = c("team_opponent" = "team_team", "team_date" = "team_date")) %>%
