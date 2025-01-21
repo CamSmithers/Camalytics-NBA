@@ -148,11 +148,60 @@ daily.team_visual_data <- team_visual_data %>%
 
 ## Visualizations
 
+### Polygon Data
+
 ```{r}
+#Shaded Region Guide
+# 1. Bottom Left
+# 2. Top Left
+# 3. Top Right
+# 4. Bottom Right
+
+shaded_region <- data.frame(
+  x = c(50, 50, 100, 100),
+  y = c(0, 19.2, 38.5, 0))
+
+shaded_region_2 <- data.frame(
+  x = c(50, 50, 65, 65),
+  y = c(50, 100, 100, 50))
+
+shaded_region_3 <- data.frame(
+  x = c(50, 50, 65, 65),
+  y = c(19.2, 25, 25, 25))
+
+shaded_region_4 <- data.frame(
+  x = c(65, 65, 100, 100),
+  y = c(25, 50, 50, 38.5))
+
+shaded_region_5 <- data.frame(
+  x = c(50, 50, 65, 65),
+  y = c(25, 50, 50, 25))
+
+shaded_region_6 <- data.frame(
+  x = c(65, 65, 100, 100),
+  y = c(50, 100, 100, 50))
+```
+
+### Plots
+
+```{r}
+
 daily.outcome_plot_1 <- ggplot(daily.team_visual_data,
                                aes(x = winloss_predicted_values,
                                    y = upset_predicted_values,
                                    color = team_name)) + 
+    geom_polygon(data = shaded_region, aes(x = x, y = y), 
+                 fill = "lightgreen", alpha = 0.1, inherit.aes = FALSE) + 
+    geom_polygon(data = shaded_region_2, aes(x = x, y = y), 
+                 fill = "grey", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_3, aes(x = x, y = y), 
+                 fill = "yellow", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_4, aes(x = x, y = y), 
+                 fill = "yellow", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_5, aes(x = x, y = y), 
+                 fill = "orange", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_6, aes(x = x, y = y), 
+                 fill = "grey", alpha = 0.2, inherit.aes = FALSE) +
     geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
     geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
     geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
@@ -161,18 +210,18 @@ daily.outcome_plot_1 <- ggplot(daily.team_visual_data,
     scale_x_continuous(limits = c(50, 100)) + 
     theme_classic() +
     labs(
-    title = "Win & Upset Probability: January 20th, 2024", 
+    title = "Win & Upset Probability", 
     x = "Win Probability", 
     y = "Upset Probability", 
     color = "Teams")
 daily.outcome_plot_1
-ggsave(filename = paste0("game_splitting_", current_date, ".png"), 
-       plot = daily.outcome_plot_1,
-       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
-       width = 25, height = 20, units = "cm")
+#ggsave(filename = paste0("game_splitting_", current_date, ".png"), 
+#       plot = daily.outcome_plot_1,
+#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+#       width = 25, height = 20, units = "cm")
 ```
 
-# Overall Visualizations
+# Daily Historic Visualizations
 
 ## Data Cleaning
 
@@ -199,6 +248,18 @@ all.outcome_plot_1 <-  ggplot(all.team_visual_data,
                               aes(x = winloss_predicted_values,
                                   y = upset_predicted_values,
                                   color = as.factor(team_game_outcome_2))) + 
+    geom_polygon(data = shaded_region, aes(x = x, y = y), 
+                 fill = "lightgreen", alpha = 0.3, inherit.aes = FALSE) + 
+    geom_polygon(data = shaded_region_2, aes(x = x, y = y), 
+                 fill = "grey", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_3, aes(x = x, y = y), 
+                 fill = "yellow", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_4, aes(x = x, y = y), 
+                 fill = "yellow", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_5, aes(x = x, y = y), 
+                 fill = "orange", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_6, aes(x = x, y = y), 
+                 fill = "grey", alpha = 0.2, inherit.aes = FALSE) +
     geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
     geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
     geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
@@ -212,52 +273,117 @@ all.outcome_plot_1 <-  ggplot(all.team_visual_data,
         x = "Win Probability",
         y = "Upset Probability", 
         color = "Outcome") + 
-    scale_color_manual(values = c("0"="red3", "1"="palegreen3"),
+    scale_color_manual(values = c("0"="red3", "1"="cornflowerblue"),
                        labels = c("0"="Loss", "1"="Win"))
 all.outcome_plot_1
-ggsave(filename = paste0("game_splitting_history_", current_date, ".png"), 
-       plot = all.outcome_plot_1,
-       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
-       width = 25, height = 20, units = "cm")
-```
+#ggsave(filename = paste0("game_splitting_history_", current_date, ".png"), 
+#       plot = all.outcome_plot_1,
+#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+#       width = 35, height = 20, units = "cm")
 
-
-
-# Other Visualizations
-
-```{r include=FALSE, eval=FALSE}
-prediction_zones <- data.frame(
-  xmin = c(50, 50, 65, 65, 65, 50),
-  xmax = c(65, 65, 100, 75, 100, 65),
-  ymin = c(25, 50, 0, 50, 25, 0),
-  ymax = c(50, 100, 25, 75, 50, 25),
-  fill = c("3. Neutral", "5. Very Unlikely", "1. Very Likely", "4. Unlikely", "2. Likely", "2. Likely"))
-
-winloss_plot_z <- ggplot(mv_all_team_data, aes(x = winloss_predicted_values,
-                                               y = upset_predicted_values,
-                                               color = as.factor(team_game_outcome_2))) + 
-    scale_x_continuous(limits = c(50, 100)) + 
-    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
-    geom_vline(xintercept = 65, color = "white", linetype = "dashed") + 
-    geom_rect(data = prediction_zones, 
-            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = fill), 
-            alpha = 0.1, color = "black", inherit.aes = FALSE) + 
-    scale_fill_manual(values = c(
-    "3. Neutral" = "yellow",
-    "5. Very Unlikely" = "red",
-    "1. Very Likely" = "green",
-    "4. Unlikely" = "orange",
-    "2. Likely" = "blue",
-    "2. Likely" = "blue")) + 
-    geom_point() + 
-    scale_color_discrete(labels = c("Loss", "Win")) + 
+all.outcome_plot_2 <- ggplot(all.team_visual_data,
+                             aes(x = outcome_2_estimates_factor,
+                                 fill = as.factor(team_game_outcome_2))) + 
+    geom_bar(position = "dodge", color = "black") + 
+    geom_text(stat = "count", 
+              aes(label = after_stat(count)), 
+              position = position_dodge(width = 0.9), 
+              vjust = -0.5) + 
+    facet_wrap(~team_name) +
     labs(
-    title = "Team Win & Upset Probability", 
-    x = "Win Probability", 
-    y = "Upset Probability", 
-    color = "Game Outcome", 
-    fill = "Probability Zones") + 
-    theme_bw()
-winloss_plot_z
+        title = "Win History in Relation to Zones",
+        x = "Game Category",
+        y = "Count",
+        fill = "Outcome") + 
+    theme_bw() + 
+    scale_fill_manual(values = c("0"="red3", "1"="cornflowerblue"),
+                       labels = c("0"="Loss", "1"="Win"))
+all.outcome_plot_2
+#ggsave(filename = paste0("game_splitting_ratio_", current_date, ".png"), 
+#       plot = all.outcome_plot_2,
+#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+#       width = 35, height = 25, units = "cm")
 ```
 
+# Historic Visualizations
+
+## Data Cleaning
+
+```{r}
+historic.team_visual_data <- team_visual_data %>%
+    mutate(
+        my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
+        my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
+        diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
+        my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0), 
+        fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
+    filter(
+        !is.na(team_fgm),
+        team_cumsum_game >= 5,
+        !is.na(upset_predicted_values),
+        team_date != Sys.Date())
+```
+
+## Visualizations
+
+```{r}
+historic.outcome_plot_1 <-  ggplot(historic.team_visual_data, 
+                              aes(x = winloss_predicted_values,
+                                  y = upset_predicted_values,
+                                  color = as.factor(team_game_outcome_2))) + 
+    geom_polygon(data = shaded_region, aes(x = x, y = y), 
+                 fill = "lightgreen", alpha = 0.2, inherit.aes = FALSE) + 
+    geom_polygon(data = shaded_region_2, aes(x = x, y = y), 
+                 fill = "grey", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_3, aes(x = x, y = y), 
+                 fill = "yellow", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_4, aes(x = x, y = y), 
+                 fill = "yellow", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_5, aes(x = x, y = y), 
+                 fill = "orange", alpha = 0.2, inherit.aes = FALSE) +
+    geom_polygon(data = shaded_region_6, aes(x = x, y = y), 
+                 fill = "grey", alpha = 0.2, inherit.aes = FALSE) +
+    geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
+    geom_abline(slope = 25/65, color = "black", linetype = "solid") + 
+    geom_point() +
+    scale_x_continuous(limits = c(50, 100)) + 
+    theme_bw() +
+    facet_wrap(~team_name) +
+    labs(
+        title = "Win & Upset Probability History",
+        x = "Win Probability",
+        y = "Upset Probability", 
+        color = "Outcome") + 
+    scale_color_manual(values = c("0"="red3", "1"="cornflowerblue"),
+                       labels = c("0"="Loss", "1"="Win"))
+historic.outcome_plot_1
+#ggsave(filename = paste0("game_splitting_history_", current_date, ".png"), 
+#       plot = all.outcome_plot_1,
+#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+#       width = 35, height = 20, units = "cm")
+
+historic.outcome_plot_2 <- ggplot(historic.team_visual_data,
+                             aes(x = outcome_2_estimates_factor,
+                                 fill = as.factor(team_game_outcome_2))) + 
+    geom_bar(position = "dodge", color = "black") + 
+    geom_text(stat = "count", 
+              aes(label = after_stat(count)), 
+              position = position_dodge(width = 0.9), 
+              vjust = -0.5) + 
+    facet_wrap(~team_name) +
+    labs(
+        title = "Win History in Relation to Zones",
+        x = "Game Category",
+        y = "Count",
+        fill = "Outcome") + 
+    theme_bw() + 
+    scale_fill_manual(values = c("0"="red3", "1"="cornflowerblue"),
+                       labels = c("0"="Loss", "1"="Win"))
+historic.outcome_plot_2
+#ggsave(filename = paste0("game_splitting_ratio_", current_date, ".png"), 
+#       plot = all.outcome_plot_2,
+#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+#       width = 35, height = 25, units = "cm")
+```
