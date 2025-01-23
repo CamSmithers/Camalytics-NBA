@@ -16,14 +16,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Loading Packages & Exponential Variable
 
 ```{r}
-library(dplyr)
 library(ggplot2)
 library(tidyverse)
 library(foreign)
 library(nnet)
 library(readr)
-library(patchwork)
-#library(plotly)
 ```
 
 ## Loading in All Data
@@ -81,11 +78,6 @@ all_team_data <- all_team_data %>%
            game_points = team_pts + team_opponent_pts) %>%
     
     #Outcome 1: Margin of Victory
-    mutate(team_game_outcome = case_when(
-        team_plusminus > 0 & team_plusminus <= 10 ~ 1,
-        team_plusminus < 0 & team_plusminus >= -10 ~ 2,
-        team_plusminus > 10 ~ 3,
-        team_plusminus < -10 ~ 4)) %>%
     
     #Outcome 2: Game Outcome 
     mutate(team_game_outcome_2 = ifelse(team_plusminus > 0, 1, 0)) %>%
@@ -131,7 +123,8 @@ all_team_average <- all_team_data %>%
         team_cummean_reb = round(cummean(team_reb), 1),
         team_cummean_tov = round(cummean(team_tov), 1),
         team_cummean_pts_off_tov = round(cummean(team_pts_off_tov), 1),
-        team_cummean_netrating = round(cummean(team_netrating), 1)) %>%
+        team_cummean_netrating = round(cummean(team_netrating), 1),
+        team_cummean_plusminus = round(cummean(team_plusminus), 1)) %>%
     fill(
         #Offensive Statistics
         team_cummean_pts, team_cummean_offrating, team_cummean_fgpct,
@@ -141,7 +134,7 @@ all_team_average <- all_team_data %>%
         team_cummean_efgpct_allowed, team_cummean_tspct_allowed,
         #Other Statistics
         team_cummean_reb, team_cummean_tov, team_cummean_netrating, 
-        team_cummean_pts_off_tov, .direction = "down") %>%
+        team_cummean_pts_off_tov, team_cummean_plusminus, .direction = "down") %>%
     dplyr::select(
         team_team, team_date,
         #Offensive Statistics
@@ -152,7 +145,7 @@ all_team_average <- all_team_data %>%
         team_cummean_efgpct_allowed, team_cummean_tspct_allowed,
         #Other Statistics
         team_cummean_reb, team_cummean_tov, team_cummean_netrating, 
-        team_cummean_pts_off_tov)
+        team_cummean_pts_off_tov, team_cummean_plusminus)
 ```
 
 ### Data Cleaning 3.2: Opponent Averages
@@ -179,7 +172,8 @@ all_opponent_average <- all_team_data %>%
         opponent_cummean_reb = round(cummean(team_reb), 1),
         opponent_cummean_tov = round(cummean(team_tov), 1),
         opponent_cummean_pts_off_tov = round(cummean(team_pts_off_tov), 1),
-        opponent_cummean_netrating = round(cummean(team_netrating), 1)) %>%
+        opponent_cummean_netrating = round(cummean(team_netrating), 1),
+        opponent_cummean_plusminus = round(cummean(team_plusminus), 1)) %>%
     fill(
         #Offensive Statistics
         opponent_cummean_pts, opponent_cummean_offrating, opponent_cummean_fgpct,
@@ -189,7 +183,7 @@ all_opponent_average <- all_team_data %>%
         opponent_cummean_efgpct_allowed, opponent_cummean_tspct_allowed,
         #Other Statistics
         opponent_cummean_reb, opponent_cummean_tov, opponent_cummean_netrating, 
-        opponent_cummean_pts_off_tov, .direction = "down") %>%
+        opponent_cummean_pts_off_tov, opponent_cummean_plusminus, .direction = "down") %>%
     dplyr::select(
         team_team, team_date,
         #Offensive Statistics
@@ -200,7 +194,7 @@ all_opponent_average <- all_team_data %>%
         opponent_cummean_efgpct_allowed, opponent_cummean_tspct_allowed,
         #Other Statistics
         opponent_cummean_reb, opponent_cummean_tov, opponent_cummean_netrating, 
-        opponent_cummean_pts_off_tov)
+        opponent_cummean_pts_off_tov, opponent_cummean_plusminus)
 ```
 
 ### Data Cleaning 3.3: League Averages
@@ -263,6 +257,31 @@ all_team_data <- all_team_data %>%
 ------------------------------------------------------------------------
 
 # Logistic Regression & Linear Regression
+
+## Outcome 1: Margin of Victory: Binary Logistic Regression
+
+```{r}
+outcome_margin_model <- lm(team_plusminus ~ team_home
+                            + team_cummean_offrating
+                            + team_cummean_defrating
+                            + opponent_cummean_offrating
+                            + opponent_cummean_defrating
+                            ,data = all_team_data)
+outcome_margin_model_summary <- summary(outcome_margin_model)
+outcome_margin_model_summary
+```
+
+### TGO 1: Model Predictors Data Frame
+
+```{r}
+outcome_margin_predicted_values <- predict(outcome_margin_model, newdata = all_team_data)
+all_team_data <- cbind(all_team_data, outcome_margin_predicted_values)
+
+#Cleaning Up Probability
+all_team_data <- all_team_data %>%
+    mutate(outcome_margin_predicted_values = round(outcome_margin_predicted_values))
+```
+
 
 ## Outcome 2: Game Outcome: Binary Logistic Regression
 

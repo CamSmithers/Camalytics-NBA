@@ -2,7 +2,7 @@
 daily.predictions <- all_team_data %>%
     dplyr::select(team_date, team_team, team_opponent,
                   winloss_predicted_values, upset_predicted_values,
-                  gametotal_predicted_values,
+                  outcome_margin_predicted_values, gametotal_predicted_values,
                   team_cumrate_win, team_cumsum_win, team_cumsum_game,
                   team_cumrate_upset, team_cumsum_upset, team_cumsum_favored) %>%
     mutate(team_team = case_when(
@@ -83,6 +83,7 @@ daily.predictions <- all_team_data %>%
            "Opponent"="team_opponent", 
            "Win Probability"="winloss_predicted_values",
            "Upset Probability"="upset_predicted_values",
+           "Estimated Margin"="outcome_margin_predicted_values",
            "Expected Game Total"="gametotal_predicted_values",
            "Current Win Pct"="team_cumrate_win", 
            "Current Upset Pct"="team_cumrate_upset",
