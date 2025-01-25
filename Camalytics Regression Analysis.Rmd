@@ -261,7 +261,7 @@ all_team_data <- all_team_data %>%
 ## Outcome 1: Margin of Victory: Binary Logistic Regression
 
 ```{r}
-outcome_margin_model <- lm(team_plusminus ~ team_home
+outcome_margin_model <- lm(team_netrating ~ team_home
                             + team_cummean_offrating
                             + team_cummean_defrating
                             + opponent_cummean_offrating
@@ -312,9 +312,21 @@ all_team_data <- all_team_data %>%
 
 ## Outcome 3: Game Outcome (w/ Previous Condition Met): Binary Logistic Regression
 
+### Pre-Analysis Cleaning
+
 ```{r}
+team_temporary_df_2 <- all_team_data %>%
+    dplyr::select(team_date, team_team, team_opponent,
+                  winloss_predicted_values) %>%
+    rename("team_1" = "team_team", "team_2" = "team_opponent",
+           "opponent_winloss_predicted_values"="winloss_predicted_values") %>%
+    dplyr::select(-team_1)
+
 all_team_data <- all_team_data %>%
-    mutate(winloss_model_guess = ifelse(winloss_predicted_values > 50, 1, 0)) %>%
+    left_join(team_temporary_df_2, by = c("team_team"="team_2", "team_date"))
+
+all_team_data <- all_team_data %>%
+    mutate(winloss_model_guess = ifelse(winloss_predicted_values > opponent_winloss_predicted_values, 1, 0)) %>%
     #Outcome 3: Predicting Upset
     mutate(team_game_outcome_3 = case_when(
         winloss_model_guess == 1 & team_plusminus < 0 ~ 1,
@@ -330,7 +342,11 @@ all_team_data <- all_team_data %>%
     team_cumrate_favored = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_favored / team_cumsum_game, 3)),
     team_cumrate_upset = ifelse(team_cumsum_favored == 0, NA, round(team_cumsum_upset / team_cumsum_favored, 3))) %>%
     ungroup()
+```
 
+### Model Analysis
+
+```{r}
 upset_model <- glm(team_game_outcome_3 ~ team_cumrate_upset
                    + opponent_cummean_offrating
                    + opponent_cummean_defrating
@@ -351,8 +367,8 @@ all_team_data <- cbind(all_team_data, upset_predicted_values)
 all_team_data <- all_team_data %>%
     mutate(upset_predicted_values = round(100 * upset_predicted_values, 1)) %>%
     mutate(upset_predicted_values = case_when(
-        winloss_model_guess == 1 ~ upset_predicted_values,
-        winloss_model_guess == 0 ~ NA))
+        winloss_predicted_values > opponent_winloss_predicted_values ~ upset_predicted_values,
+        winloss_predicted_values < opponent_winloss_predicted_values ~ NA))
 ```
 
 ## Outcome 5: Game Total Over/Under: Linear Regression

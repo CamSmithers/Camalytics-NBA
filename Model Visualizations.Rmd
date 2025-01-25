@@ -17,6 +17,7 @@ library(ggplot2)
 library(tidyverse)
 library(patchwork)
 library(readxl)
+library(ggimage)
 #library(plotly)
 ```
 
@@ -27,6 +28,8 @@ team_visual_data <- readRDS("/Users/camsmithers/Desktop/NBA Project/Main/Data/cl
 
 camalytics_predictions <- read_excel("/Users/camsmithers/Desktop/NBA Project/Main/Data/CamalyticsPicks.xlsx")
 
+team_logos <- read_excel("/Users/camsmithers/Desktop/NBA Project/Main/Data/LogoData.xlsx")
+
 current_date <- format(Sys.Date(), "%m_%d_%y")
 ```
 
@@ -35,31 +38,26 @@ current_date <- format(Sys.Date(), "%m_%d_%y")
 ```{r}
 team_visual_data <- team_visual_data %>%
     mutate(outcome_2_estimates_categories = case_when(
-        # Category 1
-        
-        winloss_predicted_values >= 50 & winloss_predicted_values < 65 
-        & upset_predicted_values >= 50 ~ 1,
-        
-        # Category 2
-        winloss_predicted_values >= 65 & upset_predicted_values >= 50 ~ 2,
-        
-        # Category 3
-        winloss_predicted_values >= 50 & winloss_predicted_values < 65 & 
-            upset_predicted_values >= 25 & upset_predicted_values < 50 ~ 3,
-        
-        # Category 4
-        (winloss_predicted_values >= 50 & winloss_predicted_values < 65 & upset_predicted_values < 25) | 
-        (winloss_predicted_values >= 65 & upset_predicted_values >= 25 & upset_predicted_values < 50) ~ 4,
-        
         # Category 5
         winloss_predicted_values >= 65 & upset_predicted_values < 25 ~ 5,
-        
+        # Category 4
+        (winloss_predicted_values > opponent_winloss_predicted_values 
+         & winloss_predicted_values < 65 & upset_predicted_values < 25)
+        | (winloss_predicted_values >= 65 & upset_predicted_values >= 25 
+        & upset_predicted_values < 50) ~ 4,
+        # Category 3
+        winloss_predicted_values > opponent_winloss_predicted_values & 
+            upset_predicted_values >= 25 & upset_predicted_values < 50 ~ 3,
+        # Category 2
+        winloss_predicted_values >= 65 & upset_predicted_values >= 50 ~ 2,
+        # Category 1
+        winloss_predicted_values > opponent_winloss_predicted_values & 
+            winloss_predicted_values < 65 & upset_predicted_values >= 50 ~ 1,
         # Category 0
-        winloss_predicted_values < 50 ~ 0
-    )) %>%
+        TRUE ~ 0)) %>%
     mutate(outcome_2_estimates_factor = factor(outcome_2_estimates_categories,
                                                levels = c(0, 1, 2, 3, 4, 5),
-                                               labels = c("Not Favored", "Very Unlikely", "Unlikely", "Coin Flip", "Likely", "Very Likely"))) %>%
+                                               labels = c("NF", "VU", "UL", "CF", "L", "VL"))) %>%
     mutate(team_name = case_when(
         #Atlantic Division
         team_team == "bos" ~ "Boston Celtics",
@@ -141,14 +139,16 @@ dummy_data <- team_visual_data %>%
 
 team_visual_data <- team_visual_data %>%
     left_join(dummy_data, by = c("team_opponent"="dummy_team", "team_date")) %>%
+    left_join(team_logos, by = c("team_team"="team")) %>%
     mutate(
         nba_picks = case_when(
-            upset_predicted_values < (25 / 65) * winloss_predicted_values ~ 2,
-            upset_predicted_values < (37.5 / 75) * winloss_predicted_values ~ 1,
-        TRUE ~ 0),
+            upset_predicted_values < (5/13) * winloss_predicted_values ~ 3,
+            upset_predicted_values < (1/2) * winloss_predicted_values ~ 2,
+            upset_predicted_values < (2/3) * winloss_predicted_values ~ 1,
+            TRUE ~ 0),
         nba_picks_factor = factor(nba_picks,
-                                     levels = c(0, 1, 2),
-                                     labels = c("Avoid", "Consider", "Select")),
+                                     levels = c(0, 1, 2, 3),
+                                     labels = c("Worst", "Okay", "Great", "Best")),
         team_display = toupper(team_team),
         plusminus_inrange = case_when(
             (outcome_margin_predicted_values %in% 0:10 & team_plusminus %in% 1:10) 
@@ -160,7 +160,17 @@ team_visual_data <- team_visual_data %>%
             TRUE ~ NA),
         plusminus_inrange_factor = factor(plusminus_inrange,
                                           levels = c(0, 1),
-                                          labels = c("Close", "Money")))
+                                          labels = c("Close", "Money"))) %>%
+    mutate(
+        my_model_correct = ifelse(winloss_model_guess == team_game_outcome_2, 1, 0),
+        diff_from_fanduel = ifelse(winloss_model_guess != team_favored, 1, 0),
+        my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0),
+        fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
+    mutate(my_adjusted_model = case_when(
+        (winloss_predicted_values > opponent_winloss_predicted_values & upset_predicted_values < 50) | 
+           (winloss_predicted_values < opponent_winloss_predicted_values & opponent_upset_predicted_values >= 50) ~ 1,
+        TRUE ~ 0)) %>%
+    mutate(my_adjusted_model_correct = ifelse(my_adjusted_model == team_game_outcome_2, 1, 0))
 ```
 
 # Daily Visualizations
@@ -169,11 +179,6 @@ team_visual_data <- team_visual_data %>%
 
 ```{r}
 daily.team_visual_data <- team_visual_data %>%
-    mutate(my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
-           my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
-           diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
-           my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0)) %>%
-    mutate(fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
     filter(team_cumsum_game >= 5) %>%
     filter(!is.na(upset_predicted_values)) %>%
     filter(team_date == Sys.Date())
@@ -185,28 +190,35 @@ daily.team_visual_data <- team_visual_data %>%
 
 daily.outcome_plot_1 <- ggplot(daily.team_visual_data,
                                aes(x = winloss_predicted_values,
-                                   y = upset_predicted_values,
-                                   color = team_name)) + 
+                                   y = upset_predicted_values)) + 
     geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
     geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
     geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
-    geom_abline(slope = 25/65, color = "springgreen3", linetype = "solid") +
-    geom_abline(slope = 37.5/75, color = "gold2", linetype = "solid") +
-    geom_point(size = 5) + 
-    geom_text(aes(label = team_display), 
-              hjust = -0.3, vjust = 1.5, size = 3.5) + 
-    scale_x_continuous(limits = c(50, 100)) + 
+    geom_abline(slope = 5/13, color = "springgreen3", linetype = "solid") +
+    geom_abline(slope = 1/2, color = "gold3", linetype = "solid") +
+    geom_abline(slope = 2/3, color = "red3", linetype = "solid") +
+    geom_image(aes(image = image_path), size = 0.05) +
+    annotate("text", x = 75, y = 90, label = "Win to Upset Ratio ≥ 2.6", 
+             color = "springgreen3", hjust = 0) +  # For the springgreen3 line
+    annotate("text", x = 75, y = 80, label = "Win to Upset Ratio ≥ 2", 
+             color = "gold3", hjust = 0) +  # For the gold3 line
+    annotate("text", x = 75, y = 70, label = "Win to Upset Ratio ≥ 1.5", 
+             color = "red3", hjust = 0) + 
     theme_bw() +
     labs(
     title = "Win & Upset Probability", 
     x = "Win Probability", 
-    y = "Upset Probability", 
-    color = "Teams")
+    y = "Upset Probability")
 daily.outcome_plot_1
-#ggsave(filename = paste0("game_splitting_", current_date, ".png"), 
-#       plot = daily.outcome_plot_1,
-#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
-#       width = 35, height = 20, units = "cm")
+```
+
+## Saving Plot
+
+```{r}
+ggsave(filename = paste0("daily_win_vs_upset_scatter_", current_date, ".png"), 
+       plot = daily.outcome_plot_1,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+       width = 35, height = 20, units = "cm")
 ```
 
 # Daily Historic Visualizations
@@ -215,12 +227,6 @@ daily.outcome_plot_1
 
 ```{r}
 all.team_visual_data <- team_visual_data %>%
-    mutate(
-        my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
-        my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
-        diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
-        my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0), 
-        fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
     filter(
         !is.na(team_fgm),
         team_cumsum_game >= 5,
@@ -249,36 +255,48 @@ all.outcome_plot_1 <- ggplot(all.team_visual_data,
     theme_bw() + 
     scale_fill_manual(values = c("0"="red3", "1"="cornflowerblue"),
                        labels = c("0"="Loss", "1"="Win")) + 
-    scale_y_continuous(limits = c(0, 25), breaks = c(5, 10, 15, 20, 25))
+    scale_y_continuous(limits = c(0, 35))
 all.outcome_plot_1
-#ggsave(filename = paste0("game_picks_ratio_", current_date, ".png"), 
-#       plot = all.outcome_plot_1,
-#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
-#       width = 35, height = 20, units = "cm")
 
-all.outcome_plot_2 <- ggplot(all.team_visual_data,
-                             aes(x = outcome_2_estimates_factor,
-                                 fill = as.factor(team_game_outcome_2))) + 
-    geom_bar(position = "dodge", color = "black") + 
-    geom_text(stat = "count", 
-              aes(label = after_stat(count)), 
-              position = position_dodge(width = 0.9), 
-              vjust = -0.5) + 
-    facet_wrap(~team_name) +
+all.outcome_plot_2 <-  ggplot(all.team_visual_data, 
+                              aes(x = winloss_predicted_values,
+                                  y = upset_predicted_values,
+                                  color = as.factor(team_game_outcome_2))) + 
+    geom_vline(xintercept = 65, color = "black", linetype = "dashed") +
+    geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
+    geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
+    geom_abline(slope = 5/13, color = "springgreen3", linetype = "solid") +
+    geom_abline(slope = 1/2, color = "gold3", linetype = "solid") +
+    geom_abline(slope = 2/3, color = "red3", linetype = "solid") +
+    geom_point() +
+#    scale_x_continuous(limits = c(50, 100)) + 
+    theme_bw() +
     labs(
-        title = "Win History in Relation to Zones",
-        x = "Game Category",
-        y = "Count",
-        fill = "Outcome") + 
-    theme_bw() + 
-    scale_fill_manual(values = c("0"="red3", "1"="cornflowerblue"),
+        title = "Win & Upset Probability History",
+        x = "Win Probability",
+        y = "Upset Probability", 
+        color = "Outcome") + 
+    scale_color_manual(values = c("0"="red3", "1"="cornflowerblue"),
                        labels = c("0"="Loss", "1"="Win")) + 
-    scale_y_continuous(limits = c(0, 25), breaks = c(5, 10, 15, 20, 25))
+    facet_wrap(~team_name)
 all.outcome_plot_2
-#ggsave(filename = paste0("game_splitting_ratio_", current_date, ".png"), 
-#       plot = all.outcome_plot_2,
-#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
-#       width = 35, height = 20, units = "cm")
+```
+
+## Saving Plot
+
+1.  Game Pick Zone Outcome Count
+2.  Win % vs Upset % by Team
+
+```{r}
+ggsave(filename = paste0("game_pick_ratio_count", current_date, ".png"), 
+       plot = all.outcome_plot_1,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+       width = 35, height = 20, units = "cm")
+
+ggsave(filename = paste0("daily_win_vs_upset_scatter_teams_", current_date, ".png"), 
+       plot = all.outcome_plot_2,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+       width = 35, height = 20, units = "cm")
 ```
 
 # Historic Visualizations
@@ -287,19 +305,6 @@ all.outcome_plot_2
 
 ```{r}
 historic.team_visual_data <- team_visual_data %>%
-    mutate(
-        my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
-        my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
-        diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
-        my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0), 
-        fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
-    mutate(my_adjusted_model = case_when(
-        winloss_predicted_values > 50 & upset_predicted_values < 50 ~ 1,
-        winloss_predicted_values > 50 & upset_predicted_values >= 50 ~ 0, 
-        winloss_predicted_values < 50 & opponent_upset_predicted_values >= 50 ~ 1,
-        winloss_predicted_values < 50 & opponent_upset_predicted_values < 50 ~ 0)) %>%
-    mutate(my_adjusted_model_correct = ifelse(my_adjusted_model == team_game_outcome_2, 1, 0)) %>%
-    mutate() %>%
     filter(
         !is.na(team_fgm),
         team_cumsum_game >= 5,
@@ -318,35 +323,28 @@ historic.outcome_plot_1 <-  ggplot(historic.team_visual_data,
     geom_hline(yintercept = 50, color = "black", linetype = "dashed") + 
     geom_hline(yintercept = 25, color = "black", linetype = "dashed") + 
     geom_hline(yintercept = 37.5, color = "black", linetype = "dashed") + 
-    geom_abline(slope = 37.5/75, color = "gold2", linetype = "solid") + 
-    geom_abline(slope = 25/65, color = "springgreen3", linetype = "solid") + 
+    geom_abline(slope = 5/13, color = "springgreen3", linetype = "solid") +
+    geom_abline(slope = 1/2, color = "gold3", linetype = "solid") +
+    geom_abline(slope = 2/3, color = "red3", linetype = "solid") +
     geom_point() +
-    scale_x_continuous(limits = c(50, 100)) + 
     theme_bw() +
-#    facet_wrap(~team_name) +
     labs(
         title = "Win & Upset Probability History",
         x = "Win Probability",
         y = "Upset Probability", 
         color = "Outcome") + 
     scale_color_manual(values = c("0"="red3", "1"="cornflowerblue"),
-                       labels = c("0"="Loss", "1"="Win")) +
-    facet_wrap(~team_display)
-#historic.outcome_plot_1
-#ggsave(filename = paste0("game_splitting_history_2", current_date, ".png"), 
-#       plot = historic.outcome_plot_1,
-#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
-#       width = 100, height = 100, units = "cm")
+                       labels = c("0"="Loss", "1"="Win"))
+historic.outcome_plot_1
 
 historic.outcome_plot_2 <- ggplot(historic.team_visual_data,
-                             aes(x = outcome_2_estimates_factor,
+                             aes(x = nba_picks_factor,
                                  fill = as.factor(team_game_outcome_2))) + 
     geom_bar(position = "dodge", color = "black") + 
     geom_text(stat = "count", 
               aes(label = after_stat(count)), 
               position = position_dodge(width = 0.9), 
               vjust = -0.5) + 
-    facet_wrap(~nba_picks_factor) +
     labs(
         title = "Win History in Relation to Zones",
         x = "Game Category",
@@ -356,10 +354,6 @@ historic.outcome_plot_2 <- ggplot(historic.team_visual_data,
     scale_fill_manual(values = c("0"="red3", "1"="cornflowerblue"),
                        labels = c("0"="Loss", "1"="Win"))
 historic.outcome_plot_2
-#ggsave(filename = paste0("game_splitting_ratio_", current_date, ".png"), 
-#       plot = all.outcome_plot_2,
-#       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
-#       width = 35, height = 25, units = "cm")
 
 historic.outcome_plot_a <- ggplot(historic.team_visual_data, 
                                   aes(x = my_adjusted_model_correct, 
@@ -374,31 +368,12 @@ historic.outcome_plot_a <- ggplot(historic.team_visual_data,
         x = "Incorrect vs. Correct Picks",
         y = "Count",
         fill = "Picks") + 
-    facet_wrap(~nba_picks_factor) +
+    scale_y_continuous(limits = c(0, 475)) +
+#    facet_wrap(team_game_outcome_3~team_game_outcome_2) +
     theme_bw() + 
     scale_fill_manual(values = c("0"="red3", "1"="springgreen3"),
                        labels = c("0"="Incorrect", "1"="Correct"))
 #historic.outcome_plot_a
-
-
-historic.outcome_plot_b <- ggplot(historic.team_visual_data, 
-                                  aes(x = my_model_correct, 
-                                      fill = as.factor(my_model_correct))) +
-    geom_bar(position = "dodge", color = "black") + 
-    geom_text(stat = "count", 
-              aes(label = after_stat(count)), 
-              position = position_dodge(width = 0.9), 
-              vjust = -0.5) + 
-    labs(
-        title = "Raw Unadjusted Win Model",
-        x = "Incorrect vs. Correct Picks",
-        y = "Count",
-        fill = "Picks") + 
-#    facet_wrap(~team_name) +
-    theme_bw() +
-    scale_fill_manual(values = c("0"="red3", "1"="springgreen3"),
-                       labels = c("0"="Incorrect", "1"="Correct"))
-#historic.outcome_plot_b
 
 historic.outcome_plot_c <- ggplot(historic.team_visual_data, 
                                   aes(x = fanduel_correct, 
@@ -413,44 +388,35 @@ historic.outcome_plot_c <- ggplot(historic.team_visual_data,
         x = "Incorrect vs. Correct Picks",
         y = "Count",
         fill = "Picks") + 
-    facet_wrap(~nba_picks_factor) +
+    scale_y_continuous(limits = c(0, 475)) +
+#    facet_wrap(team_game_outcome_3~team_game_outcome_2) +
     theme_bw() +
     scale_fill_manual(values = c("0"="red3", "1"="springgreen3"),
                        labels = c("0"="Incorrect", "1"="Correct"))
 #historic.outcome_plot_c
 
-historic.outcome_plot_d <- ggplot(historic.team_visual_data,
-                             aes(x = winloss_predicted_values, 
-                                 y = team_plusminus)) + 
-    geom_hline(yintercept = 0, color = "red", linetype = "solid") +
-    geom_vline(xintercept = 80, color = "green", linetype = "solid") +
-    geom_point() + 
-    geom_smooth() + 
-    facet_wrap(~nba_picks_factor)
-historic.outcome_plot_d
+cam_vs_fanduel <- historic.outcome_plot_a + historic.outcome_plot_c + 
+    plot_layout(ncol = 2) + 
+    plot_annotation(title = "Cam vs. Fanduel Models",
+                    theme = theme(plot.title = element_text(hjust = 0.5)))
+cam_vs_fanduel
+```
 
-#cam_vs_fanduel <- historic.outcome_plot_a + historic.outcome_plot_c + 
-#    plot_layout(ncol = 2) + 
-#    plot_annotation(title = "Cam vs. Fanduel Models",
-#                    theme = theme(plot.title = element_text(hjust = 0.5)))
-#cam_vs_fanduel
+## Saving Plot
 
-historic.outcome_plot_e <- ggplot(historic.team_visual_data %>% filter(!is.na(plusminus_inrange_factor)),
-                                  aes(x = plusminus_inrange_factor,
-                                      fill = as.factor(plusminus_inrange_factor))) +
-    geom_bar(position = "dodge", color = "black") + 
-    geom_text(stat = "count", 
-              aes(label = after_stat(count)), 
-              position = position_dodge(width = 0.9), 
-              vjust = -0.5) +
-    facet_wrap(team_name~nba_picks_factor) +
-    theme_bw() +
-    labs(
-        title = "Team Point Range in Relation to Pick Breakdown",
-        x = "Point Estimate in Relation to Outcome",
-        y = "Count",
-        fill = "Point Range Outcome")
-historic.outcome_plot_e
+1.  Win % vs Upset %
+2.  Win History 
+
+```{r include=FALSE, eval=FALSE}
+ggsave(filename = paste0("game_splitting_history_2", current_date, ".png"), 
+       plot = historic.outcome_plot_1,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+       width = 100, height = 100, units = "cm")
+
+ggsave(filename = paste0("game_splitting_ratio_", current_date, ".png"), 
+       plot = all.outcome_plot_2,
+       path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+       width = 35, height = 25, units = "cm")
 ```
 
 # Camalytics Picks
@@ -461,19 +427,7 @@ historic.outcome_plot_e
 camalytics_predictions_data <- camalytics_predictions %>%
     left_join(team_visual_data, by = c("camalytics_picks"="team_team", "date"="team_date")) %>%
     mutate(picks_zone = ifelse(outcome_2_estimates_categories %in% 1:5,
-                               "Picked Favorite", "Picked Upset")) %>%
-    mutate(
-        my_predicted_win = ifelse(winloss_predicted_values > 50, 1, 0),
-        my_model_correct = ifelse(my_predicted_win == team_game_outcome_2, 1, 0),
-        diff_from_fanduel = ifelse(my_predicted_win != team_favored, 1, 0), 
-        my_predicted_upset = ifelse(upset_predicted_values > 50, 1, 0), 
-        fanduel_correct = ifelse(team_favored == team_game_outcome_2, 1, 0)) %>%
-    mutate(my_adjusted_model = case_when(
-        winloss_predicted_values > 50 & upset_predicted_values < 50 ~ 1,
-        winloss_predicted_values > 50 & upset_predicted_values >= 50 ~ 0, 
-        winloss_predicted_values < 50 & opponent_upset_predicted_values >= 50 ~ 1,
-        winloss_predicted_values < 50 & opponent_upset_predicted_values < 50 ~ 0)) %>%
-    mutate(my_adjusted_model_correct = ifelse(my_adjusted_model == team_game_outcome_2, 1, 0))
+                               "Picked Favorite", "Picked Upset"))
 ```
 
 ## Visualizations
@@ -493,9 +447,9 @@ camalytics_plot_1 <- ggplot(camalytics_predictions_data,
         y = "Count",
         fill = "Pick Result") + 
     theme_bw() + 
+    facet_wrap(~picks_zone) +
     scale_fill_manual(values = c("0"="red3", "1"="springgreen3"),
                        labels = c("0"="Incorrect", "1"="Correct"))
-#    facet_wrap(~picks_zone)
 camalytics_plot_1
 
 fanduel_plot_1 <- ggplot(camalytics_predictions_data,
@@ -514,6 +468,5 @@ fanduel_plot_1 <- ggplot(camalytics_predictions_data,
     theme_bw() + 
     scale_fill_manual(values = c("0"="red3", "1"="springgreen3"),
                        labels = c("0"="Incorrect", "1"="Correct"))
-#    facet_wrap(~picks_zone)
 fanduel_plot_1
 ```
