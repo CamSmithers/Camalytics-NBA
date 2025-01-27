@@ -395,5 +395,9 @@ all_team_data <- all_team_data %>%
 # Data Export
 
 ```{r}
+source("/Users/camsmithers/Desktop/NBA Project/Main/Code/Daily Data.R")
+
 saveRDS(all_team_data, "/Users/camsmithers/Desktop/NBA Project/Main/Data/cleaned_nba_data.rds")
+
+source("/Users/camsmithers/Desktop/NBA Project/Main/Code/Model Visualizations.R")
 ```
