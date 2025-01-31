@@ -1,0 +1,117 @@
+---
+title: "Last 2 Week Report"
+author: "Cam Smithers"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(ggimage)
+```
+
+## Data
+
+```{r}
+two_week_data <- readRDS("/Users/camsmithers/Desktop/NBA Project/Main/Data/visual_data.rds")
+
+two_week_data <- two_week_data %>%
+    filter(team_date >= "2025-01-01" & team_date <= "2025-01-28") %>%
+    mutate(my_model_correct = factor(my_model_correct,
+                                     levels = c(0, 1),
+                                     labels = c("Incorrect", "Correct")),
+           my_adjusted_model_correct = factor(my_adjusted_model_correct,
+                                     levels = c(0, 1),
+                                     labels = c("Incorrect", "Correct")),
+           fanduel_correct = factor(fanduel_correct,
+                                     levels = c(0, 1),
+                                     labels = c("Incorrect", "Correct")),
+           team_game_outcome_2_factor = factor(team_game_outcome_2,
+                                               levels = c(0, 1),
+                                               labels = c("Loss",
+                                                          "Win")))
+```
+
+## Analysis
+
+1.  Game Outcome: Win/Loss
+    1.  Correct vs. Incorrect
+    2.  Model vs. FanDuel
+2.  Game Margin: x >= 10 / x >= 11
+    1.  Correct vs. Incorrect
+
+```{r}
+analysis_plot_1 <- ggplot(two_week_data, 
+                          aes(x = my_model_correct,
+                              fill = my_model_correct)) +
+    geom_bar(position = "dodge", color = "black") + 
+    scale_fill_manual(values =
+                          c("Incorrect"="red3", "Correct"="springgreen3")) +
+    geom_text(stat = "count", 
+              aes(label = after_stat(count)), 
+              position = position_dodge(width = 0.9), 
+              vjust = -0.5) +
+    labs(
+        title = "Win %",
+        x = "Incorrect vs. Correct Picks",
+        y = "Count",
+        fill = "Prediction Result"
+    ) +
+    scale_y_continuous(limits = c(0, 300))
+#    facet_wrap(~team_display)
+analysis_plot_1
+
+analysis_plot_2 <- ggplot(two_week_data, 
+                          aes(x = my_adjusted_model_correct,
+                              fill = my_adjusted_model_correct)) +
+     geom_bar(position = "dodge", color = "black") + 
+    scale_fill_manual(values =
+                          c("Incorrect"="red3", "Correct"="springgreen3")) +
+    geom_text(stat = "count", 
+              aes(label = after_stat(count)), 
+              position = position_dodge(width = 0.9), 
+              vjust = -0.5) + 
+    labs(
+        title = "Adjusted Win%",
+        x = "Incorrect vs. Correct Picks",
+        y = "Count",
+        fill = "Prediction Result"
+    ) +
+    scale_y_continuous(limits = c(0, 300))
+#    facet_wrap(~team_display)
+analysis_plot_2
+
+analysis_plot_3 <- ggplot(two_week_data, 
+                          aes(x = fanduel_correct,
+                              fill = fanduel_correct)) +
+     geom_bar(position = "dodge", color = "black") + 
+    scale_fill_manual(values =
+                          c("Incorrect"="red3", "Correct"="springgreen3")) +
+    geom_text(stat = "count", 
+              aes(label = after_stat(count)), 
+              position = position_dodge(width = 0.9), 
+              vjust = -0.5) + 
+    labs(
+        title = "FanDuel",
+        x = "Incorrect vs. Correct Picks",
+        y = "Count",
+        fill = "Prediction Result"
+    ) +
+    scale_y_continuous(limits = c(0, 300))
+#    facet_wrap(~team_display)
+analysis_plot_3
+
+cams_vs_fanduels <- analysis_plot_1 + analysis_plot_2 + analysis_plot_3 +
+    plot_layout(ncol = 3) +
+    plot_annotation(title = "Gen Win% Model vs. Adj Win% Model vs. FanDuel Model",
+                    theme = theme(plot.title = element_text(hjust = 0.5)))
+cams_vs_fanduels
+```

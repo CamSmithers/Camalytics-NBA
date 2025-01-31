@@ -45,6 +45,17 @@ team_visual_data <- team_visual_data %>%
                                                levels = c(0, 1, 2, 3, 4, 5),
                                                labels = c("NF", "VU", "UL",
                                                           "CF", "L", "VL"))) %>%
+    mutate(
+        outcome_1_factor = factor(team_game_outcome_1,
+                                  levels = c(0, 1),
+                                  labels = c("Win by ≥ 10",
+                                             "Win by ≤ 11")),
+        outcome_1_estimates_categories = 
+               ifelse(outcome_margin_predicted_values >= 50, 1, 0),
+        outcome_1_estimates_factor = factor(outcome_1_estimates_categories,
+                                            levels = c(0, 1),
+                                            labels = c("Est. Win by ≥ 10",
+                                                       "Est. Win by ≤ 11"))) %>%
     mutate(team_name = case_when(
         #Atlantic Division
         team_team == "bos" ~ "Boston Celtics",
@@ -137,20 +148,7 @@ team_visual_data <- team_visual_data %>%
         nba_picks_factor = factor(nba_picks,
                                   levels = c(0, 1, 2, 3),
                                   labels = c("Worst", "Okay", "Great", "Best")),
-        team_display = toupper(team_team),
-        plusminus_inrange = case_when(
-            (outcome_margin_predicted_values %in% 0:10 
-             & team_plusminus %in% 1:10) 
-            | (outcome_margin_predicted_values %in% -1:-10 
-               & team_plusminus %in% -1:-10)
-            | (outcome_margin_predicted_values > 10 & team_plusminus > 10)
-            | (outcome_margin_predicted_values < -10 & team_plusminus < -10) ~ 1,
-            (outcome_margin_predicted_values >= 0 & team_plusminus > 0)
-            | (outcome_margin_predicted_values < 0 & team_plusminus < 0) ~ 0,
-            TRUE ~ NA),
-        plusminus_inrange_factor = factor(plusminus_inrange,
-                                          levels = c(0, 1),
-                                          labels = c("Close", "Money"))) %>%
+        team_display = toupper(team_team)) %>%
     mutate(
         my_model_correct = ifelse(winloss_model_guess == team_game_outcome_2, 1, 0),
         diff_from_fanduel = ifelse(winloss_model_guess != team_favored, 1, 0),
@@ -163,8 +161,18 @@ team_visual_data <- team_visual_data %>%
              & opponent_upset_predicted_values >= 50) ~ 1,
         TRUE ~ 0)) %>%
     mutate(my_adjusted_model_correct = 
-               ifelse(my_adjusted_model == team_game_outcome_2, 1, 0))
+               ifelse(my_adjusted_model == team_game_outcome_2, 1, 0)) %>%
+    mutate(
+        margin_correct = ifelse(outcome_1_estimates_categories == 
+                                       team_game_outcome_1, 1, 0),
+        margin_correct_factor = factor(margin_correct,
+                                          levels = c(0, 1), 
+                                          labels = c("Incorrect",
+                                                     "Correct")))
 
+#------------------------------------------------------------------------#
+saveRDS(team_visual_data,
+        "/Users/camsmithers/Desktop/NBA Project/Main/Data/visual_data.rds")
 #------------------------------------------------------------------------#
 
 # Daily Visual Data
@@ -185,11 +193,11 @@ daily.outcome_plot_1 <- ggplot(daily.team_visual_data,
     geom_abline(slope = 1/2, color = "gold3", linetype = "solid") +
     geom_abline(slope = 2/3, color = "red3", linetype = "solid") +
     geom_image(aes(image = image_path), size = 0.05) +
-    annotate("text", x = 75, y = 90, label = "Win to Upset Ratio > or = 2.6", 
+    annotate("text", x = 70, y = 90, label = "Win to Upset Ratio ≥ 2.6", 
              color = "springgreen3", hjust = 0) +  # For the springgreen3 line
-    annotate("text", x = 75, y = 80, label = "Win to Upset Ratio > or = 2", 
+    annotate("text", x = 70, y = 85, label = "Win to Upset Ratio ≥ 2", 
              color = "gold3", hjust = 0) +  # For the gold3 line
-    annotate("text", x = 75, y = 70, label = "Win to Upset Ratio > or = 1.5", 
+    annotate("text", x = 70, y = 80, label = "Win to Upset Ratio ≥ 1.5", 
              color = "red3", hjust = 0) + 
     theme_bw() +
     labs(
@@ -260,7 +268,7 @@ all.outcome_plot_2 <-  ggplot(all.team_visual_data,
 all.outcome_plot_2
 
 ## Saving Plot
-ggsave(filename = paste0("game_pick_ratio_count", current_date, ".png"), 
+ggsave(filename = paste0("game_pick_ratio_count_", current_date, ".png"), 
        plot = all.outcome_plot_1,
        path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
        width = 35, height = 20, units = "cm")
@@ -381,6 +389,46 @@ if (FALSE) {
         filename = paste0("game_splitting_ratio_", current_date, ".png"), 
         plot = all.outcome_plot_2,
         path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations", 
+        width = 35, height = 25, units = "cm"
+    )
+}
+
+#------------------------------------------------------------------------#
+
+#Win Margin Specific
+## Data Cleaning
+margin.team_visual_data <- team_visual_data %>%
+    filter(
+        !is.na(team_game_outcome_1),
+        team_cumsum_game >= 5,
+        team_date != Sys.Date(),
+        team_team %in% daily.team_visual_data$team_team)
+
+## Visualizations
+margin.plot_1 <- ggplot(margin.team_visual_data,
+                       aes(x = outcome_1_estimates_factor,
+                           fill = margin_correct_factor)) + 
+    geom_bar(position = "dodge", color = "black") + 
+    geom_text(stat = "count", 
+              aes(label = after_stat(count)), 
+              position = position_dodge(width = 0.9), 
+              vjust = -0.5) +
+    facet_wrap(~team_name) +
+    scale_fill_manual(values =
+                          c("Incorrect"="red3", "Correct"="springgreen3")) + 
+    labs(
+        title = "Predicting Win Margin History",
+        x = "Margins of Victor",
+        y = "Count",
+        fill = "Picks"
+    )
+margin.plot_1
+
+if (TRUE) {
+    ggsave(
+        filename = paste0("win_margin_history_", current_date, ".png"),
+        plot = margin.plot_1,
+        path = "/Users/camsmithers/Desktop/NBA Project/Main/Visualizations",
         width = 35, height = 25, units = "cm"
     )
 }

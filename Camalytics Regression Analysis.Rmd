@@ -78,6 +78,10 @@ all_team_data <- all_team_data %>%
            game_points = team_pts + team_opponent_pts) %>%
     
     #Outcome 1: Margin of Victory
+    mutate(team_game_outcome_1 = case_when(
+        team_plusminus %in% 1:10 ~ 0,
+        team_plusminus >= 11 ~ 1,
+        TRUE ~ NA)) %>%
     
     #Outcome 2: Game Outcome 
     mutate(team_game_outcome_2 = ifelse(team_plusminus > 0, 1, 0)) %>%
@@ -260,13 +264,47 @@ all_team_data <- all_team_data %>%
 
 ## Outcome 1: Margin of Victory: Binary Logistic Regression
 
+### Pre-Analysis Cleaning
+
 ```{r}
-outcome_margin_model <- lm(team_netrating ~ team_home
-                            + team_cummean_offrating
-                            + team_cummean_defrating
-                            + opponent_cummean_offrating
-                            + opponent_cummean_defrating
-                            ,data = all_team_data)
+in_wins <- all_team_data %>%
+    filter(team_plusminus > 0) %>%
+    group_by(team_team) %>%
+    mutate(team_cummean_plusminus_win = round(cummean(team_plusminus))) %>%
+    dplyr::select(team_team, team_date, team_cummean_plusminus_win)
+
+in_losses <- all_team_data %>%
+    filter(team_plusminus < 0) %>%
+    group_by(team_team) %>%
+    mutate(team_cummean_plusminus_loss = round(cummean(team_plusminus))) %>%
+    dplyr::select(team_team, team_date, team_cummean_plusminus_loss)
+
+all_team_data <- all_team_data %>%
+    left_join(in_wins, by = c("team_team", "team_date")) %>%
+    left_join(in_losses, by = c("team_team", "team_date"))
+
+all_team_data <- all_team_data %>%
+    group_by(team_team) %>%
+    fill(team_cummean_plusminus_win, team_cummean_plusminus_loss, .direction = "down") %>%
+    ungroup()
+
+opponent_margins <- all_team_data %>%
+    select(team_date, team_team, team_opponent, 
+           team_cummean_plusminus_win, team_cummean_plusminus_loss) %>%
+    rename("team_1" = "team_team", "team_2" = "team_opponent", 
+           "opponent_cummean_plusminus_win"="team_cummean_plusminus_win", 
+           "opponent_cummean_plusminus_loss"="team_cummean_plusminus_loss") %>%
+    dplyr::select(-team_1)
+
+all_team_data <- all_team_data %>%
+    left_join(opponent_margins, by = c("team_team"="team_2", "team_date"))
+```
+
+
+```{r}
+outcome_margin_model <- glm(team_game_outcome_1 ~ team_cummean_plusminus_win 
+                            + opponent_cummean_plusminus_loss
+                            , data = all_team_data, family = "binomial")
 outcome_margin_model_summary <- summary(outcome_margin_model)
 outcome_margin_model_summary
 ```
@@ -274,12 +312,14 @@ outcome_margin_model_summary
 ### TGO 1: Model Predictors Data Frame
 
 ```{r}
-outcome_margin_predicted_values <- predict(outcome_margin_model, newdata = all_team_data)
+#Model Estimate to Main Data Frame
+outcome_margin_fitted <- fitted(outcome_margin_model)
+outcome_margin_predicted_values <- predict(outcome_margin_model, newdata = all_team_data, type = "response")
 all_team_data <- cbind(all_team_data, outcome_margin_predicted_values)
 
 #Cleaning Up Probability
 all_team_data <- all_team_data %>%
-    mutate(outcome_margin_predicted_values = round(outcome_margin_predicted_values))
+    mutate(outcome_margin_predicted_values = round(100 * outcome_margin_predicted_values, 1))
 ```
 
 
