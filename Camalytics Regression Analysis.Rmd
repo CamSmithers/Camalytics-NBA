@@ -256,6 +256,13 @@ all_team_data <- all_team_data %>%
         #Cumulative Rates
         team_cumrate_win = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_win / team_cumsum_game, 3))) %>%
     ungroup()
+
+all_team_data <- all_team_data %>%
+    arrange(team_team, team_date) %>%
+    group_by(team_team) %>%
+    mutate(team_back2back = ifelse(difftime(team_date, lag(team_date), units = "days") == 1, 1, 0)) %>%
+    replace_na(list(team_back2back = 0)) %>%
+    ungroup()
 ```
 
 ------------------------------------------------------------------------
@@ -307,6 +314,14 @@ outcome_margin_model <- glm(team_game_outcome_1 ~ team_cummean_plusminus_win
                             , data = all_team_data, family = "binomial")
 outcome_margin_model_summary <- summary(outcome_margin_model)
 outcome_margin_model_summary
+
+outcome_margin_2_model <- glm(team_game_outcome_1 ~ team_cummean_plusminus_win 
+                            + opponent_cummean_plusminus_loss
+                            + factor(team_team)
+                            + factor(team_opponent)
+                            , data = all_team_data, family = "binomial")
+outcome_margin_2_model_summary <- summary(outcome_margin_2_model)
+outcome_margin_2_model_summary
 ```
 
 ### TGO 1: Model Predictors Data Frame
@@ -320,6 +335,15 @@ all_team_data <- cbind(all_team_data, outcome_margin_predicted_values)
 #Cleaning Up Probability
 all_team_data <- all_team_data %>%
     mutate(outcome_margin_predicted_values = round(100 * outcome_margin_predicted_values, 1))
+
+#Model Estimate to Main Data Frame
+outcome_margin_2_fitted <- fitted(outcome_margin_2_model)
+outcome_margin_2_predicted_values <- predict(outcome_margin_2_model, newdata = all_team_data, type = "response")
+all_team_data <- cbind(all_team_data, outcome_margin_2_predicted_values)
+
+#Cleaning Up Probability
+all_team_data <- all_team_data %>%
+    mutate(outcome_margin_2_predicted_values = round(100 * outcome_margin_2_predicted_values, 1))
 ```
 
 
@@ -335,6 +359,18 @@ winloss_model <- glm(team_game_outcome_2 ~ team_home
 
 winloss_model_summary <- summary(winloss_model)
 winloss_model_summary
+
+winloss_model_2 <- glm(team_game_outcome_2 ~ team_home
+                 + team_cummean_offrating
+                 + team_cummean_defrating
+                 + opponent_cummean_offrating
+                 + opponent_cummean_defrating
+                 + factor(team_team)
+                 + factor(team_opponent)
+                 , data = all_team_data, family = "binomial")
+
+winloss_model_2_summary <- summary(winloss_model_2)
+winloss_model_2_summary
 ```
 
 ### TGO 2: Model Predictors Data Frame
@@ -348,6 +384,14 @@ all_team_data <- cbind(all_team_data, winloss_predicted_values)
 #Cleaning Up Probability
 all_team_data <- all_team_data %>%
     mutate(winloss_predicted_values = round(100 * winloss_predicted_values, 1))
+
+#Model Estimate to Main Data Frame
+winloss_2_predictions <- fitted(winloss_model_2)
+winloss_2_predicted_values <- predict(winloss_model_2, newdata = all_team_data, type = "response")
+all_team_data <- cbind(all_team_data, winloss_2_predicted_values)
+#Cleaning Up Probability
+all_team_data <- all_team_data %>%
+    mutate(winloss_2_predicted_values = round(100 * winloss_2_predicted_values, 1))
 ```
 
 ## Outcome 3: Game Outcome (w/ Previous Condition Met): Binary Logistic Regression
@@ -357,9 +401,10 @@ all_team_data <- all_team_data %>%
 ```{r}
 team_temporary_df_2 <- all_team_data %>%
     dplyr::select(team_date, team_team, team_opponent,
-                  winloss_predicted_values) %>%
+                  winloss_predicted_values, winloss_2_predicted_values) %>%
     rename("team_1" = "team_team", "team_2" = "team_opponent",
-           "opponent_winloss_predicted_values"="winloss_predicted_values") %>%
+           "opponent_winloss_predicted_values"="winloss_predicted_values",
+           "opponent_winloss_2_predicted_values"="winloss_2_predicted_values") %>%
     dplyr::select(-team_1)
 
 all_team_data <- all_team_data %>%
@@ -367,29 +412,43 @@ all_team_data <- all_team_data %>%
 
 all_team_data <- all_team_data %>%
     mutate(winloss_model_guess = ifelse(winloss_predicted_values > opponent_winloss_predicted_values, 1, 0)) %>%
+    mutate(winloss_model_2_guess = ifelse(winloss_2_predicted_values > opponent_winloss_2_predicted_values, 1, 0)) %>%
     #Outcome 3: Predicting Upset
-    mutate(team_game_outcome_3 = case_when(
+    mutate(team_game_outcome_3a = case_when(
         winloss_model_guess == 1 & team_plusminus < 0 ~ 1,
         winloss_model_guess == 1 & team_plusminus > 0 ~ 0,
+        TRUE ~ NA)) %>%
+    mutate(team_game_outcome_3b = case_when(
+        winloss_model_2_guess == 1 & team_plusminus < 0 ~ 1,
+        winloss_model_2_guess == 1 & team_plusminus > 0 ~ 0,
         TRUE ~ NA))
 
 all_team_data <- all_team_data %>%
     dplyr::group_by(team_team) %>%
     mutate(
+    #Model 1
     team_cumsum_favored = cumsum(ifelse(is.na(winloss_model_guess), 0, winloss_model_guess)),
-    team_cumsum_upset = cumsum(ifelse(is.na(team_game_outcome_3), 0, team_game_outcome_3)),
+    team_cumsum_upset = cumsum(ifelse(is.na(team_game_outcome_3a), 0, team_game_outcome_3a)),
+    #Model 2
+    team_cumsum_favored_2 = cumsum(ifelse(is.na(winloss_model_2_guess), 0, winloss_model_2_guess)),
+    team_cumsum_upset_2 = cumsum(ifelse(is.na(team_game_outcome_3b), 0, team_game_outcome_3b)),
     
     team_cumrate_favored = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_favored / team_cumsum_game, 3)),
-    team_cumrate_upset = ifelse(team_cumsum_favored == 0, NA, round(team_cumsum_upset / team_cumsum_favored, 3))) %>%
+    team_cumrate_upset = ifelse(team_cumsum_favored == 0, NA, round(team_cumsum_upset / team_cumsum_favored, 3)),
+    
+    team_cumrate_favored_2 = ifelse(team_cumsum_game == 0, NA, round(team_cumsum_favored_2 / team_cumsum_game, 3)),
+    team_cumrate_upset_2 = ifelse(team_cumsum_favored_2 == 0, NA, round(team_cumsum_upset_2 / team_cumsum_favored_2, 3))
+    ) %>%
     ungroup()
 ```
 
 ### Model Analysis
 
 ```{r}
-upset_model <- glm(team_game_outcome_3 ~ team_cumrate_upset
+upset_model <- glm(team_game_outcome_3a ~ team_cumrate_upset
                    + opponent_cummean_offrating
                    + opponent_cummean_defrating
+                   + team_back2back
                    , data = all_team_data, family = "binomial")
 upset_model_summary <- summary(upset_model)
 upset_model_summary

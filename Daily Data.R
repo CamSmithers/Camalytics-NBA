@@ -2,10 +2,14 @@
 daily.predictions <- all_team_data %>%
     dplyr::select(team_date, team_team, team_opponent,
                   winloss_predicted_values, upset_predicted_values,
+                  winloss_2_predicted_values,
                   outcome_margin_predicted_values,
+                  outcome_margin_2_predicted_values,
                   gametotal_predicted_values,
-                  team_cumrate_win, team_cumsum_win, team_cumsum_game,
-                  team_cumrate_upset, team_cumsum_upset, team_cumsum_favored) %>%
+                  team_cumrate_win, team_cumsum_win,
+                  team_cumsum_game,
+                  team_cumrate_upset, team_cumsum_upset,
+                  team_cumsum_favored) %>%
     mutate(team_team = case_when(
         #Atlantic Division
         team_team == "bos" ~ "Boston Celtics",
@@ -84,7 +88,9 @@ daily.predictions <- all_team_data %>%
            "Opponent"="team_opponent", 
            "Win Probability"="winloss_predicted_values",
            "Upset Probability"="upset_predicted_values",
+           "V2 Win Probability"="winloss_2_predicted_values",
            "Win by 11+ Probability"="outcome_margin_predicted_values",
+           "V2 Win by 11+ Probability"="outcome_margin_2_predicted_values",
            "Expected Game Total"="gametotal_predicted_values",
            "Current Win Pct"="team_cumrate_win", 
            "Current Upset Pct"="team_cumrate_upset",
@@ -99,3 +105,4 @@ current_date <- format(Sys.Date(), "%m_%d_%y")
 
 write_csv(daily.predictions, 
           paste0("/Users/camsmithers/Desktop/NBA Project/Main/Model Predictions/Daily/GameOutcome_", current_date, ".csv"))
+
